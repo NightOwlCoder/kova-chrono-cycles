@@ -23,7 +23,7 @@
             display: flex; height: 100vh; user-select: none;
         }
 
-        canvas { position: absolute; top: 0; left: 0; z-index: 0; }
+        canvas { position: absolute; top: 0; left: 0; z-index: 0; touch-action: none; }
 
         /* LOADING SCREEN */
         #loading-screen {
@@ -92,6 +92,7 @@
         }
         .toggle-btn:hover { background: #333; color: #fff; }
         .toggle-btn.active { background: var(--accent); color: black; border-color: var(--accent); font-weight: bold; }
+        .layer-toggle { padding: 4px 8px; font-size: 0.7rem; flex: 0 0 auto; min-width: 60px; text-align: center; }
 
         /* ACHIEVEMENTS LIST */
         .ach-list-item {
@@ -432,6 +433,14 @@
         <button class="toggle-btn" id="mute-ticks-btn" onclick="AudioSys.toggleTicks()">MUTE TICKS: OFF</button>
         <button class="toggle-btn active" id="floaters-btn" onclick="UI.toggleFloaters()">FLOATING TEXT: ON</button>
         <button class="toggle-btn active" id="auto-toggle-btn" onclick="Game.toggleAutoBuy()" style="display:none;">AUTO-BUY: ON</button>
+        <div id="layer-autobuy-container" style="display:none; margin-top:10px;">
+            <span class="setting-label">LAYER AUTO-BUY:</span>
+            <div id="layer-autobuy-toggles" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;"></div>
+        </div>
+        <div style="border-top:1px solid #333; margin-top:15px; padding-top:15px;">
+            <button class="toggle-btn" onclick="location.reload()" style="background:#4a4a5a;">🔄 RESTART GAME</button>
+            <button class="toggle-btn" onclick="if(confirm('⚠️ This will PERMANENTLY delete all progress! Are you sure?')) { localStorage.removeItem('chronoCyclesSave'); location.reload(); }" style="background:#aa3344; margin-top:5px;">🗑️ WIPE SAVE DATA</button>
+        </div>
     </div>
 
     <div id="help-modal" class="modal" style="width:300px;">
@@ -545,7 +554,7 @@
         <button class="dev-btn" onclick="Game.cheatMoney()">+1e30 All Res</button>
         <button class="dev-btn" onclick="Game.unlockAll()">Unlock All Layers</button>
         <button class="dev-btn" onclick="Game.maxSpeed()">Set Speed to 1T</button>
-        <button class="dev-btn" onclick="localStorage.clear(); location.reload()">Wipe Save</button>
+        <button class="dev-btn" onclick="localStorage.removeItem('chronoCyclesSave'); location.reload()">Wipe Save</button>
     </div>
 
     <script>
@@ -555,10 +564,10 @@
 
         const CONFIG = {
             layers: [
-                { name: "Entropy", currency: "Time Shards", icon: "⏳", color: "#ff3333", unlockRPM: 3000, lore: "The spark. Kinetic force creates the initial Entropy needed for existence." },
-                { name: "Biomass", currency: "Genetic Code", icon: "🧬", color: "#33ff33", unlockRPM: 3000, lore: "Organic matter stabilizes within the Cosmic Aether." },
-                { name: "Aether", currency: "Cosmic Essence", icon: "💠", color: "#3388ff", unlockRPM: 3000, lore: "Matter dissolves into pure energy. The Cosmic Aether flows freely." },
-                { name: "Plasma", currency: "Ionized Gas", icon: "⚡", color: "#ffaa00", unlockRPM: 3000, lore: "Superheated matter achieves stellar ignition. Plasma arcs detect." },
+                { name: "Entropy", currency: "Time Shards", icon: "⏳", color: "#bf5af2", unlockRPM: 3000, lore: "The spark. Kinetic force creates the initial Entropy needed for existence." },
+                { name: "Biomass", currency: "Genetic Code", icon: "🧬", color: "#64ffda", unlockRPM: 3000, lore: "Organic matter stabilizes within the Cosmic Aether." },
+                { name: "Aether", currency: "Cosmic Essence", icon: "💠", color: "#9b4dca", unlockRPM: 3000, lore: "Matter dissolves into pure energy. The Cosmic Aether flows freely." },
+                { name: "Plasma", currency: "Ionized Gas", icon: "⚡", color: "#ff6b9d", unlockRPM: 3000, lore: "Superheated matter achieves stellar ignition. Plasma arcs detect." },
                 { name: "Dark Matter", currency: "Void Mass", icon: "🌑", color: "#8800ff", unlockRPM: 3000, lore: "Invisible mass detected. Dark Matter binds the galaxy together." },
                 { name: "Quantum", currency: "Q-Bits", icon: "⚛️", color: "#00ffff", unlockRPM: 3000, lore: "Sub-atomic breakdown. Entanglement established across space-time." },
                 { name: "Exotic", currency: "Strange Matter", icon: "🧿", color: "#ff00ff", unlockRPM: 3000, lore: "Physics breaking down. Exotic particles defying gravity." },
@@ -650,6 +659,7 @@
             dimension: 0, resources: new Array(10).fill(0), rings: [], unlockedLayers: 1, selectedRes: 0, 
             lastTime: performance.now(), buyAmount: 1, chronons: 0, infinityPoints: 0, autoBuyUniversal: false,
             autoBuyEnabled: true,
+            layerAutoBuy: new Array(10).fill(true), // Per-layer auto-buy toggles
             
             settings: { floaters: true },
             hasAutoDisabledFloaters: false,
@@ -666,6 +676,8 @@
             blackHoleSize: 10, blackHoleMass: 0, infUpgrades: { weave: 0, void: 0 },
             voidParticles: [], // Holds active particle objects
 
+            // OFFLINE PROGRESS
+            hiddenTime: null,
             // SOUND TRACKING
             hasPlayedMaxSound: new Array(10).fill(false),
 
@@ -685,6 +697,17 @@
                     }
                 });
                 window.addEventListener('keydown', (e) => { if(e.key === '`' || e.key === '~') document.getElementById('dev-menu').classList.toggle('open'); });
+                // TOUCH SUPPORT for mobile
+                window.addEventListener('touchstart', (e) => {
+                    AudioSys.init();
+                    if(e.target.tagName === 'CANVAS' && e.touches.length > 0) {
+                        e.preventDefault(); // Prevent scroll/zoom
+                        const touch = e.touches[0];
+                        const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
+                        if(this.dimension === 0) this.handleCircleClick(fakeEvent);
+                        else this.handleInfinityClick(fakeEvent);
+                    }
+                }, { passive: false });
             },
             
             validateState() {
@@ -864,6 +887,7 @@
             runAutoBuy() {
                 if(!this.autoBuyUniversal || !this.autoBuyEnabled || this.dimension === 1) return;
                 for(let i = 0; i < this.unlockedLayers; i++) {
+                    if(!this.layerAutoBuy[i]) continue; // Skip if layer auto-buy disabled
                     ['speed', 'value', 'auto'].forEach(type => {
                         let cost = this.calculateSingleCost(i, type, this.rings[i].upgrades[type]);
                         if(this.resources[i] >= cost) {
@@ -884,6 +908,11 @@
                 }
             },
 
+            toggleLayerAutoBuy(layerIdx) {
+                this.layerAutoBuy[layerIdx] = !this.layerAutoBuy[layerIdx];
+                UI.updateLayerAutoBuyUI();
+            },
+
             save() {
                 const saveData = {
                     version: 1,
@@ -892,6 +921,7 @@
                     chronons: this.chronons,
                     autoBuyUniversal: this.autoBuyUniversal,
                     autoBuyEnabled: this.autoBuyEnabled,
+                    layerAutoBuy: this.layerAutoBuy,
                     unlockedLayers: this.unlockedLayers,
                     dimension: this.dimension,
                     infinityPoints: this.infinityPoints,
@@ -912,6 +942,7 @@
                     if(data.chronons !== undefined) this.chronons = data.chronons;
                     if(data.autoBuyUniversal !== undefined) this.autoBuyUniversal = data.autoBuyUniversal;
                     if(data.autoBuyEnabled !== undefined) this.autoBuyEnabled = data.autoBuyEnabled;
+                    if(data.layerAutoBuy) this.layerAutoBuy = data.layerAutoBuy;
                     if(data.unlockedLayers !== undefined) this.unlockedLayers = data.unlockedLayers;
                     if(data.dimension !== undefined) this.dimension = data.dimension;
                     if(data.infinityPoints !== undefined) this.infinityPoints = data.infinityPoints;
@@ -1247,6 +1278,32 @@
             unlockAll() { this.unlockedLayers = 10; document.getElementById('warp-btn').style.display = 'block'; UI.buildUpgrades(); UI.updateRPMList(); UI.updateCurrList(); UI.updatePrestigeUI(); },
             maxSpeed() { this.rings.forEach(r => { r.torque = 1e12; r.velocity = 1e12; }); },
 
+
+            processOfflineProgress(seconds) {
+                if(this.dimension === 1) return; // Skip if in Infinity dimension
+                let totalEarned = 0;
+                for(let i = 0; i < this.unlockedLayers; i++) {
+                    const ring = this.rings[i];
+                    if(ring.velocity > 0) {
+                        // Calculate based on current velocity (RPM) and value multiplier
+                        const prestigeMult = 1 + (ring.prestigeLevel * 0.5);
+                        const baseReward = ring.baseVal * Math.pow(1.6, ring.upgrades.value) * this.getChrononBoost() * prestigeMult;
+                        const lapsPerSecond = ring.velocity / 60;
+                        const earned = baseReward * lapsPerSecond * seconds;
+                        this.resources[i] += earned;
+                        if(i === 0) totalEarned = earned;
+                    }
+                }
+                if(totalEarned > 1) {
+                    const timeStr = seconds >= 3600 ? 
+                        Math.round(seconds / 3600) + "h" : 
+                        Math.round(seconds / 60) + "m";
+                    Achievements.show("TEMPORAL SKIP", `Earned ${Format(totalEarned)} Entropy while away (${timeStr})`, "#40e0d0");
+                    UI.setLore(`Offline progress: ${timeStr} of production added.`);
+                }
+                UI.updateMainDisplay();
+            },
+
             loop() {
                 const now = performance.now();
                 const dt = (now - this.lastTime) / 1000;
@@ -1477,7 +1534,9 @@
                     header.style.setProperty('--layer-color', layer.color);
                     
                     let mult = 1 + (Game.rings[i].prestigeLevel * 0.5);
-                    header.innerHTML = `<span>${layer.name} GEAR (x${mult.toFixed(1)})</span>`;
+                    const autoActive = Game.autoBuyUniversal && Game.layerAutoBuy[i];
+                    const autoBadge = autoActive ? ' <span style="color:#64ffda;font-size:0.8rem;">[AUTO]</span>' : '';
+                    header.innerHTML = `<span>${layer.name} GEAR (x${mult.toFixed(1)})${autoBadge}</span>`;
                     
                     const ocBtn = document.createElement('button');
                     ocBtn.className = 'overclock-btn';
@@ -1605,7 +1664,24 @@
             updateShopUI() {
                 document.getElementById('shop-chronon-val').innerText = Format(Game.chronons);
                 const btn = document.getElementById('shop-auto-btn');
-                if(Game.autoBuyUniversal) { btn.innerText = "OWNED"; btn.classList.add('owned'); document.getElementById('auto-toggle-btn').style.display = ''; } else { if(Game.chronons >= 5) btn.disabled = false; else btn.disabled = true; }
+                if(Game.autoBuyUniversal) { btn.innerText = "OWNED"; btn.classList.add('owned'); document.getElementById('auto-toggle-btn').style.display = ''; this.updateLayerAutoBuyUI(); } else { if(Game.chronons >= 5) btn.disabled = false; else btn.disabled = true; }
+            },
+            updateLayerAutoBuyUI() {
+                const container = document.getElementById("layer-autobuy-container");
+                const togglesDiv = document.getElementById("layer-autobuy-toggles");
+                if(!Game.autoBuyUniversal) { container.style.display = "none"; return; }
+                container.style.display = "block";
+                togglesDiv.innerHTML = "";
+                for(let i = 0; i < Game.unlockedLayers; i++) {
+                    const layer = CONFIG.layers[i];
+                    const btn = document.createElement("button");
+                    btn.className = "toggle-btn layer-toggle" + (Game.layerAutoBuy[i] ? " active" : "");
+                    btn.style.borderColor = layer.color;
+                    if(Game.layerAutoBuy[i]) btn.style.background = layer.color;
+                    btn.innerText = layer.name.substring(0,6);
+                    btn.onclick = () => Game.toggleLayerAutoBuy(i);
+                    togglesDiv.appendChild(btn);
+                }
             },
             updateMainDisplay() {
                 if(Game.dimension === 1) {
@@ -1708,6 +1784,22 @@
         }
 
         window.onload = () => Game.init();
+
+        // OFFLINE PROGRESS - Page Visibility API
+        document.addEventListener("visibilitychange", () => {
+            if(document.hidden) {
+                Game.hiddenTime = Date.now();
+                Game.save(); // Save on hide for safety
+            } else if(Game.hiddenTime) {
+                const elapsed = (Date.now() - Game.hiddenTime) / 1000;
+                const maxOffline = 12 * 60 * 60; // 12 hours cap
+                const cappedTime = Math.min(elapsed, maxOffline);
+                if(cappedTime > 1) {
+                    Game.processOfflineProgress(cappedTime);
+                }
+                Game.hiddenTime = null;
+            }
+        });
 
     </script>
     <div style="position:fixed; bottom:5px; left:0; right:0; text-align:center; color:#9966ff; font-size:11px; opacity:0.7; pointer-events:none; z-index:1;">💜 Enhanced by Kova · Original by @tututi</div>
