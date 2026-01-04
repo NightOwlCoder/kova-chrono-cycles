@@ -438,8 +438,7 @@
             <div id="layer-autobuy-toggles" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;"></div>
         </div>
         <div style="border-top:1px solid #333; margin-top:15px; padding-top:15px;">
-            <button class="toggle-btn" onclick="location.reload()" style="background:#4a4a5a;">🔄 RESTART GAME</button>
-            <button class="toggle-btn" onclick="if(confirm('⚠️ This will PERMANENTLY delete all progress! Are you sure?')) { localStorage.removeItem('chronoCyclesSave'); location.reload(); }" style="background:#aa3344; margin-top:5px;">🗑️ WIPE SAVE DATA</button>
+            <button class="toggle-btn" onclick="Game.newGame()" style="background:#aa3344;">🆕 NEW GAME</button>
         </div>
     </div>
 
@@ -911,9 +910,13 @@
             toggleLayerAutoBuy(layerIdx) {
                 this.layerAutoBuy[layerIdx] = !this.layerAutoBuy[layerIdx];
                 UI.updateLayerAutoBuyUI();
+                UI.buildUpgrades(); // Refresh headers to show/hide [AUTO] badge
             },
 
             save() {
+                // Don't save while resetting
+                if(this._isResetting) return;
+                
                 const saveData = {
                     version: 1,
                     resources: this.resources,
@@ -1272,6 +1275,21 @@
                 }
                 UI.updateButtons();
                 if(layerIdx === this.selectedRes) UI.updateMainDisplay();
+            },
+
+            newGame() {
+                // Set flag BEFORE confirm dialog to prevent autosave during dialog
+                this._isResetting = true;
+                
+                if(confirm('⚠️ START NEW GAME?\nThis will DELETE all progress permanently!')) {
+                    // Delete from localStorage completely
+                    localStorage.removeItem('chronoCyclesSave');
+                    
+                    // Force reload immediately
+                    window.location.href = window.location.href.split('?')[0];
+                } else {
+                    this._isResetting = false;
+                }
             },
 
             cheatMoney() { this.resources.fill(1e30); this.chronons += 1000; UI.updatePrestigeUI(); },
