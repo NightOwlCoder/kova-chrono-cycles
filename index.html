@@ -876,7 +876,9 @@
                 if(item === 'autoBuy') {
                     if(this.chronons >= 5 && !this.autoBuyUniversal) {
                         this.chronons -= 5; this.autoBuyUniversal = true; document.getElementById('auto-toggle-btn').style.display = '';
-                        UI.updateShopUI(); UI.updatePrestigeUI(); Achievements.show("AUTOMATION ONLINE", "All layers are now self-sustaining!", "#0f0");
+                        UI.updateShopUI(); UI.updatePrestigeUI(); UI.buildUpgrades();
+                        Achievements.show("AUTOMATION ONLINE", "All layers are now self-sustaining!", "#0f0");
+                        this.save(); // Save immediately after purchase
                     }
                 }
             },
@@ -1315,10 +1317,12 @@
                     const timeStr = seconds >= 3600 ? 
                         Math.round(seconds / 3600) + "h" : 
                         Math.round(seconds / 60) + "m";
-                    Achievements.show("TEMPORAL SKIP", `Earned ${Format(totalEarned)} Entropy while away (${timeStr})`, "#40e0d0");
-                    UI.setLore(`Offline progress: ${timeStr} of production added.`);
+                    Achievements.show("TEMPORAL SKIP", `Earned +${Format(totalEarned)} Entropy (${timeStr})`, "#40e0d0");
+                    UI.setLore(`Offline progress: +${Format(totalEarned)} Entropy (${timeStr})`);
                 }
+                // Force full UI refresh
                 UI.updateMainDisplay();
+                UI.updateButtons();
             },
 
             loop() {
