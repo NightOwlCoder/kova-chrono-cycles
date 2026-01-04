@@ -1313,6 +1313,14 @@
                         if(i === 0) totalEarned = earned;
                     }
                 }
+                // Run auto-buy to spend the offline resources on upgrades
+                if(this.autoBuyUniversal && this.autoBuyEnabled) {
+                    // Run multiple times to catch up on purchases
+                    for(let tick = 0; tick < 100; tick++) {
+                        this.runAutoBuy();
+                    }
+                }
+                
                 if(totalEarned > 1) {
                     const timeStr = seconds >= 3600 ? 
                         Math.round(seconds / 3600) + "h" : 
@@ -1323,6 +1331,7 @@
                 // Force full UI refresh
                 UI.updateMainDisplay();
                 UI.updateButtons();
+                UI.buildUpgrades(); // Refresh upgrade cards with new levels
             },
 
             loop() {
