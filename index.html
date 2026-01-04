@@ -414,6 +414,7 @@
         <div class="icon-row">
             <button class="icon-btn" onclick="document.getElementById('ach-modal').classList.toggle('open'); UI.showAchievements()">🏆</button>
             <button class="icon-btn" onclick="document.getElementById('settings-modal').classList.toggle('open')">⚙</button>
+            <button class="icon-btn" onclick="document.getElementById('help-modal').classList.toggle('open')">❓</button>
         </div>
         <span id="settings-hint">You can turn points back on here &#8593;</span>
     </div>
@@ -430,6 +431,20 @@
         </div>
         <button class="toggle-btn" id="mute-ticks-btn" onclick="AudioSys.toggleTicks()">MUTE TICKS: OFF</button>
         <button class="toggle-btn active" id="floaters-btn" onclick="UI.toggleFloaters()">FLOATING TEXT: ON</button>
+        <button class="toggle-btn active" id="auto-toggle-btn" onclick="Game.toggleAutoBuy()" style="display:none;">AUTO-BUY: ON</button>
+    </div>
+
+    <div id="help-modal" class="modal" style="width:300px;">
+        <div style="color:#9966ff; font-weight:bold; text-align:center; margin-bottom:8px; font-size:14px;">HOW TO PLAY</div>
+        <div style="color:#ccc; font-size:11px; line-height:1.5;">
+            <p style="margin:6px 0;"><b style="color:#ff6666;">🔄 CYCLES:</b> Click rings to generate resources.</p>
+            <p style="margin:6px 0;"><b style="color:#66ff66;">⬆️ UPGRADES:</b> Speed, Value, Auto - boost production.</p>
+            <p style="margin:6px 0;"><b style="color:#6699ff;">🌀 LAYERS:</b> Max RPM unlocks new resource layers.</p>
+            <p style="margin:6px 0;"><b style="color:#ffaa00;">💫 PRESTIGE:</b> Reset for permanent Chronon bonuses.</p>
+            <p style="margin:6px 0;"><b style="color:#aa66ff;">🛒 SHOP:</b> Spend Chronons on powerful upgrades.</p>
+            <p style="margin:6px 0;"><b style="color:#00ffff;">🤖 AUTO-BUY:</b> Auto-purchases for ALL layers!</p>
+        </div>
+        <button class="toggle-btn" onclick="document.getElementById('help-modal').classList.remove('open')">CLOSE</button>
     </div>
 
     <div id="ach-modal" class="modal">
@@ -443,8 +458,8 @@
         <div style="text-align:center; color:#4488ff; font-family:'Orbitron'; font-size:0.8rem; margin-bottom:10px;">Available: <span id="shop-chronon-val">0</span></div>
         
         <div class="shop-item">
-            <div style="color:#fff; font-weight:bold; font-size:0.9rem;">ENTROPY AUTOMATION</div>
-            <div style="color:#888; font-size:0.7rem;">Auto-buys Layer 1 upgrades.</div>
+            <div style="color:#fff; font-weight:bold; font-size:0.9rem;">UNIVERSAL AUTOMATION</div>
+            <div style="color:#888; font-size:0.7rem;">Auto-buys ALL layer upgrades!</div>
             <button class="shop-btn" id="shop-auto-btn" onclick="Game.buyShopItem('autoBuy')">BUY (5 Chronons)</button>
         </div>
         <button class="toggle-btn" onclick="document.getElementById('shop-modal').classList.remove('open')">CLOSE</button>
@@ -633,7 +648,8 @@
 
         const Game = {
             dimension: 0, resources: new Array(10).fill(0), rings: [], unlockedLayers: 1, selectedRes: 0, 
-            lastTime: performance.now(), buyAmount: 1, chronons: 0, infinityPoints: 0, autoBuyLayer1: false,
+            lastTime: performance.now(), buyAmount: 1, chronons: 0, infinityPoints: 0, autoBuyUniversal: false,
+            autoBuyEnabled: true,
             
             settings: { floaters: true },
             hasAutoDisabledFloaters: false,
@@ -655,10 +671,12 @@
 
             init() {
                 this.resetRings(); 
+                this.load(); 
                 this.validateState();
                 UI.init(); Renderer.init();
                 UI.setLore("The Singularity is dormant. Strike the Core to generate Entropy.");
                 this.loop();
+                setInterval(() => this.save(), 30000);
                 window.addEventListener('mousedown', (e) => {
                     AudioSys.init();
                     if(e.target.tagName === 'CANVAS') {
@@ -794,6 +812,7 @@
                     this.unlockedLayers = 1;
                     
                     this.resetRings(); 
+                this.load(); 
                     this.selectedRes = 0;
                     
                     UI.buildUpgrades(); 
@@ -834,22 +853,78 @@
 
             buyShopItem(item) {
                 if(item === 'autoBuy') {
-                    if(this.chronons >= 5 && !this.autoBuyLayer1) {
-                        this.chronons -= 5; this.autoBuyLayer1 = true;
-                        UI.updateShopUI(); UI.updatePrestigeUI(); Achievements.show("AUTOMATION ONLINE", "Entropy Layer is now self-sustaining.", "#0f0");
+                    if(this.chronons >= 5 && !this.autoBuyUniversal) {
+                        this.chronons -= 5; this.autoBuyUniversal = true; document.getElementById('auto-toggle-btn').style.display = '';
+                        UI.updateShopUI(); UI.updatePrestigeUI(); Achievements.show("AUTOMATION ONLINE", "All layers are now self-sustaining!", "#0f0");
                     }
                 }
             },
 
+
             runAutoBuy() {
-                if(!this.autoBuyLayer1 || this.dimension === 1) return;
-                ['speed', 'value', 'auto'].forEach(type => {
-                    let cost = this.calculateSingleCost(0, type, this.rings[0].upgrades[type]);
-                    if(this.resources[0] >= cost) {
-                        this.resources[0] -= cost; this.rings[0].upgrades[type]++; UI.updateButtons();
-                    }
-                });
+                if(!this.autoBuyUniversal || !this.autoBuyEnabled || this.dimension === 1) return;
+                for(let i = 0; i < this.unlockedLayers; i++) {
+                    ['speed', 'value', 'auto'].forEach(type => {
+                        let cost = this.calculateSingleCost(i, type, this.rings[i].upgrades[type]);
+                        if(this.resources[i] >= cost) {
+                            this.resources[i] -= cost;
+                            this.rings[i].upgrades[type]++;
+                        }
+                    });
+                }
+                UI.updateButtons();
             },
+
+            toggleAutoBuy() {
+                this.autoBuyEnabled = !this.autoBuyEnabled;
+                const btn = document.getElementById('auto-toggle-btn');
+                if(btn) {
+                    btn.innerText = 'AUTO-BUY: ' + (this.autoBuyEnabled ? 'ON' : 'OFF');
+                    if(this.autoBuyEnabled) btn.classList.add('active'); else btn.classList.remove('active');
+                }
+            },
+
+            save() {
+                const saveData = {
+                    version: 1,
+                    resources: this.resources,
+                    rings: this.rings,
+                    chronons: this.chronons,
+                    autoBuyUniversal: this.autoBuyUniversal,
+                    autoBuyEnabled: this.autoBuyEnabled,
+                    unlockedLayers: this.unlockedLayers,
+                    dimension: this.dimension,
+                    infinityPoints: this.infinityPoints,
+                    blackHoleSize: this.blackHoleSize,
+                    blackHoleMass: this.blackHoleMass,
+                    infUpgrades: this.infUpgrades
+                };
+                localStorage.setItem('chronoCyclesSave', JSON.stringify(saveData));
+            },
+
+            load() {
+                const saved = localStorage.getItem('chronoCyclesSave');
+                if(!saved) return false;
+                try {
+                    const data = JSON.parse(saved);
+                    if(data.resources) this.resources = data.resources;
+                    if(data.rings) this.rings = data.rings;
+                    if(data.chronons !== undefined) this.chronons = data.chronons;
+                    if(data.autoBuyUniversal !== undefined) this.autoBuyUniversal = data.autoBuyUniversal;
+                    if(data.autoBuyEnabled !== undefined) this.autoBuyEnabled = data.autoBuyEnabled;
+                    if(data.unlockedLayers !== undefined) this.unlockedLayers = data.unlockedLayers;
+                    if(data.dimension !== undefined) this.dimension = data.dimension;
+                    if(data.infinityPoints !== undefined) this.infinityPoints = data.infinityPoints;
+                    if(data.blackHoleSize !== undefined) this.blackHoleSize = data.blackHoleSize;
+                    if(data.blackHoleMass !== undefined) this.blackHoleMass = data.blackHoleMass;
+                    if(data.infUpgrades !== undefined) this.infUpgrades = data.infUpgrades;
+                    return true;
+                } catch(e) {
+                    console.error('Failed to load save:', e);
+                    return false;
+                }
+            },
+
 
             addTorque(idx, amount) {
                 if(isNaN(this.rings[idx].torque)) this.rings[idx].torque = 0;
@@ -1530,7 +1605,7 @@
             updateShopUI() {
                 document.getElementById('shop-chronon-val').innerText = Format(Game.chronons);
                 const btn = document.getElementById('shop-auto-btn');
-                if(Game.autoBuyLayer1) { btn.innerText = "OWNED"; btn.classList.add('owned'); } else { if(Game.chronons >= 5) btn.disabled = false; else btn.disabled = true; }
+                if(Game.autoBuyUniversal) { btn.innerText = "OWNED"; btn.classList.add('owned'); document.getElementById('auto-toggle-btn').style.display = ''; } else { if(Game.chronons >= 5) btn.disabled = false; else btn.disabled = true; }
             },
             updateMainDisplay() {
                 if(Game.dimension === 1) {
@@ -1635,5 +1710,6 @@
         window.onload = () => Game.init();
 
     </script>
+    <div style="position:fixed; bottom:5px; left:0; right:0; text-align:center; color:#9966ff; font-size:11px; opacity:0.7; pointer-events:none; z-index:1;">💜 Enhanced by Kova · Original by @tututi</div>
 </body>
 </html>
