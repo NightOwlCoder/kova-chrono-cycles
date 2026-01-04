@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CHRONO-CYCLES v7.6</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CHRONO-CYCLES v8.3 - STABLE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap');
 
@@ -13,6 +13,7 @@
             --border: 1px solid rgba(255, 255, 255, 0.15);
             --accent: #ff3333;
             --inf-accent: #bd00ff;
+            --reality-gold: #ffd700;
             --shop-grad: linear-gradient(135deg, #ff00cc, #3333ff);
             --text-main: #eee;
         }
@@ -59,14 +60,13 @@
         }
         .icon-btn:hover { color: #fff; transform: scale(1.1); }
         
-        /* Auto-off hint arrow - MOVED UNDER COG */
         #settings-hint {
             display: none; color: #40e0d0; font-family: 'Share Tech Mono'; font-size: 0.8rem;
             animation: bounceDown 1s infinite; margin-right: 5px; text-align: right;
         }
         @keyframes bounceDown { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
-        /* SETTINGS MODAL */
+        /* MODALS */
         .modal {
             position: fixed; top: 70px; right: 20px; width: 300px;
             background: rgba(10, 10, 15, 0.98); border: 1px solid #444;
@@ -75,11 +75,34 @@
             max-height: 80vh; overflow-y: auto;
         }
         
-        /* SHOP MODAL - CENTERED */
-        #shop-modal {
+        #shop-modal, #forge-modal {
             top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 400px; right: auto;
+            width: 500px; right: auto;
         }
+        
+        /* MANUAL MODAL STYLING */
+        #manual-modal {
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 600px; right: auto; height: 500px;
+            background: #08080a; border: 2px solid #4488ff;
+            box-shadow: 0 0 50px rgba(68, 136, 255, 0.2);
+        }
+        .manual-content {
+            display: grid; grid-template-columns: 150px 1fr; gap: 20px; height: 100%;
+        }
+        .manual-nav { border-right: 1px solid #333; display: flex; flex-direction: column; gap: 5px; }
+        .manual-tab {
+            padding: 10px; cursor: pointer; color: #888; font-family: 'Orbitron'; font-size: 0.8rem;
+            text-align: left; background: none; border: none; transition: 0.2s;
+        }
+        .manual-tab:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .manual-tab.active { color: #4488ff; border-left: 2px solid #4488ff; background: rgba(68, 136, 255, 0.1); }
+        
+        .manual-page { display: none; overflow-y: auto; padding-right: 10px; }
+        .manual-page.active { display: block; }
+        .manual-header { font-family: 'Orbitron'; color: #fff; font-size: 1.5rem; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .manual-text { font-family: 'Share Tech Mono'; color: #ccc; font-size: 0.9rem; line-height: 1.6; }
+        .manual-highlight { color: #4488ff; font-weight: bold; }
 
         .modal.open { display: flex; }
         .setting-row { display: flex; flex-direction: column; gap: 5px; }
@@ -94,7 +117,6 @@
         .toggle-btn.active { background: var(--accent); color: black; border-color: var(--accent); font-weight: bold; }
         .layer-toggle { padding: 4px 8px; font-size: 0.7rem; flex: 0 0 auto; min-width: 60px; text-align: center; }
 
-        /* ACHIEVEMENTS LIST */
         .ach-list-item {
             background: rgba(255,255,255,0.05); border: 1px solid #333; padding: 10px;
             display: flex; gap: 10px; align-items: center;
@@ -102,19 +124,23 @@
         .ach-list-item.locked { opacity: 0.5; filter: grayscale(1); }
         .ach-icon-sm { font-size: 1.2rem; }
 
-        /* SHOP ITEMS */
-        .shop-item {
+        .shop-item, .forge-item {
             background: rgba(255,255,255,0.05); border: 1px solid #555; padding: 10px;
-            display: flex; flex-direction: column; gap: 5px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;
         }
         .shop-btn {
             background: var(--shop-grad); border: none; color: white;
-            padding: 8px; font-weight: bold; cursor: pointer; font-family: 'Orbitron'; font-size: 0.8rem;
+            padding: 5px 10px; font-weight: bold; cursor: pointer; font-family: 'Orbitron'; font-size: 0.7rem; min-width: 80px;
         }
-        .shop-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
-        .shop-btn.owned { background: #33ff33; color: black; pointer-events: none; }
+        .forge-btn {
+            background: linear-gradient(135deg, #bd00ff, #000); border: 1px solid #bd00ff; color: white;
+            padding: 8px; font-weight: bold; cursor: pointer; font-family: 'Orbitron'; font-size: 0.8rem;
+            transition: 0.3s;
+        }
+        .shop-btn:disabled, .forge-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
+        .shop-btn.owned, .forge-btn.owned { background: #33ff33; color: black; pointer-events: none; border:none;}
+        .forge-btn:hover:not(:disabled) { background: #bd00ff; box-shadow: 0 0 15px #bd00ff; }
 
-        /* EVENT BANNER (TOP) */
         #event-banner {
             position: fixed; top: -150px; left: 50%; transform: translateX(-50%);
             width: 450px; background: #111; border: 2px solid #fff;
@@ -124,7 +150,6 @@
             border-radius: 0 0 10px 10px;
         }
         #event-banner.active { top: 0; }
-        
         .evt-solar { background: linear-gradient(180deg, #620 0%, #111 100%) !important; border-color: #f80 !important; }
         .evt-time { background: linear-gradient(180deg, #024 0%, #111 100%) !important; border-color: #40e0d0 !important; }
         .evt-warp { background: linear-gradient(180deg, #404 0%, #111 100%) !important; border-color: #f0f !important; }
@@ -142,7 +167,6 @@
             display: flex; justify-content: space-between;
         }
 
-        /* --- LEFT PANEL --- */
         .control-panel {
             width: 460px; background: var(--panel); border-right: var(--border);
             padding: 0; pointer-events: auto;
@@ -156,7 +180,6 @@
         }
         .header h1 { margin: 0; font-family: 'Orbitron'; font-weight: 900; font-size: 1.6rem; color: #fff; text-shadow: 0 0 10px var(--accent); }
 
-        /* WARP BUTTON */
         #warp-btn {
             display: none; margin-top: 15px; width: 100%; padding: 20px;
             background: linear-gradient(90deg, #000, #40e0d0, #000);
@@ -178,7 +201,6 @@
         @keyframes shine { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
         #warp-btn:hover { color: #000; background: #40e0d0; }
 
-        /* PRESTIGE BOX */
         #prestige-container { display: none; }
         
         .prestige-box {
@@ -194,7 +216,6 @@
         .prestige-btn:hover { background: #fff; }
         .prestige-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #555; color: #ccc; }
 
-        /* SHOP BUTTON */
         .shop-open-btn {
             margin-top: 5px; width: 100%; padding: 8px;
             background: var(--shop-grad); border: none; color: white;
@@ -203,7 +224,16 @@
         }
         .shop-open-btn:hover { filter: brightness(1.2); }
 
-        /* MULTIPLIER BUTTONS */
+        .forge-open-btn {
+            margin-top: 15px; width: 100%; padding: 12px;
+            background: #000; border: 1px solid #bd00ff; color: #bd00ff;
+            font-family: 'Orbitron'; font-weight: bold; cursor: pointer;
+            box-shadow: 0 0 10px rgba(189, 0, 255, 0.2);
+            transition: 0.3s;
+            display: none; 
+        }
+        .forge-open-btn:hover { background: #bd00ff; color: #000; box-shadow: 0 0 20px #bd00ff; }
+
         .mult-controls { display: flex; gap: 5px; margin-top: 10px; margin-bottom: 10px; }
         .mult-btn {
             flex: 1; background: #222; border: 1px solid #444; color: #888;
@@ -213,7 +243,6 @@
         .mult-btn:hover { background: #333; color: #fff; }
         .mult-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: bold; }
 
-        /* RPM DROPDOWN */
         .rpm-wrapper { margin-top: 10px; }
         .rpm-summary {
             background: #080808; border: 1px solid #333; padding: 10px; border-radius: 4px;
@@ -238,7 +267,6 @@
         .scroll-area::-webkit-scrollbar { width: 4px; }
         .scroll-area::-webkit-scrollbar-thumb { background: #444; }
 
-        /* UPGRADES */
         .layer-group { margin-bottom: 30px; position: relative; }
         .layer-header {
             font-family: 'Orbitron'; font-size: 1.1rem; color: var(--layer-color);
@@ -257,6 +285,12 @@
             animation: pulseGlow 2s infinite;
         }
         .overclock-btn.visible { display: block; }
+        
+        .eye-btn {
+            background: none; border: none; color: #666; cursor: pointer; font-size: 1rem; margin-right: 10px;
+        }
+        .eye-btn:hover { color: #fff; }
+        .eye-btn.disabled { color: #333; }
         
         @keyframes pulseGlow { 0% { box-shadow: 0 0 5px var(--layer-color); } 50% { box-shadow: 0 0 15px var(--layer-color); } 100% { box-shadow: 0 0 5px var(--layer-color); } }
         .overclock-btn:hover { background: var(--layer-color); color: #000; }
@@ -281,7 +315,6 @@
         .u-cost { font-family: 'Share Tech Mono'; color: var(--layer-color); font-size: 1rem; font-weight: bold; }
         .u-lvl { font-size: 0.85rem; color: #777; font-family: 'Share Tech Mono'; margin-top: 2px; }
 
-        /* --- CENTER HUD --- */
         .center-hud {
             position: absolute; top: 50px; left: 50%; transform: translateX(-50%);
             text-align: center; pointer-events: auto; z-index: 20;
@@ -291,7 +324,6 @@
             color: #fff; text-shadow: 0 0 30px rgba(255, 255, 255, 0.2); line-height: 1;
         }
         
-        /* CLICK COMBO BAR */
         #click-combo-container {
             margin-top: 10px; opacity: 0; transition: opacity 0.3s;
         }
@@ -299,7 +331,6 @@
         .combo-bar { width: 300px; height: 4px; background: #333; margin: 5px auto; position: relative; }
         .combo-fill { width: 0%; height: 100%; background: #ff3333; transition: width 0.1s linear; }
 
-        /* Dropdown for Currency */
         .currency-select {
             position: relative; display: inline-block; margin-top: 10px;
         }
@@ -321,7 +352,6 @@
         }
         .curr-opt:hover { background: #222; color: #fff; }
 
-        /* --- BOTTOM RIGHT LORE BOX --- */
         #lore-box {
             position: fixed; bottom: 20px; right: 20px; width: 350px;
             background: rgba(0, 0, 0, 0.9); border: 1px solid #333;
@@ -335,8 +365,15 @@
         .lore-text { font-family: 'Share Tech Mono'; font-size: 0.9rem; color: #ccc; line-height: 1.5; }
         .lore-blink { animation: blink 1s infinite; display: inline-block; width: 8px; height: 15px; background: #fff; vertical-align: middle; margin-left: 5px;}
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        
+        #manual-btn {
+            position: fixed; bottom: 20px; right: 380px; width: 40px; height: 40px;
+            background: #111; border: 1px solid #444; border-radius: 50%;
+            color: #fff; font-size: 1.2rem; cursor: pointer; z-index: 60;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #manual-btn:hover { background: #333; border-color: #888; }
 
-        /* --- POPUPS --- */
         .popup-area {
             position: absolute; top: 160px; left: 50%; transform: translateX(-50%);
             display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 100;
@@ -351,7 +388,6 @@
         .ach-text h3 { margin: 0; font-family: 'Orbitron'; color: var(--c); font-size: 1rem; }
         .ach-text p { margin: 5px 0 0; color: #ccc; font-size: 0.85rem; }
 
-        /* --- DEV MENU --- */
         .dev-toggle {
             position: fixed; bottom: 10px; right: 10px; background: #222; color: #444;
             border: 1px solid #333; width: 30px; height: 30px; border-radius: 50%;
@@ -369,13 +405,11 @@
         }
         .dev-btn:hover { background: #f00; color: #fff; }
 
-        /* Floater */
         .floater {
             position: absolute; pointer-events: none; 
             font-family: 'Share Tech Mono'; font-weight: bold; font-size: 1.5rem;
             animation: floatUp 1s forwards; text-shadow: 0 0 5px currentColor;
         }
-        /* GRADIENT TEXT FOR INFINITY */
         .gradient-text {
             background: linear-gradient(90deg, #00ffff, #ff00ff);
             -webkit-background-clip: text;
@@ -384,9 +418,14 @@
             font-size: 2rem !important;
             font-weight: 900;
         }
+        .reality-text {
+            color: #ffd700 !important;
+            text-shadow: 0 0 10px #ffaa00 !important;
+            font-size: 3rem !important;
+            z-index: 999;
+        }
         @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-50px) scale(1.5); } }
 
-        /* Reality Button */
         #reality-btn {
             margin-top: 15px; padding: 10px 30px; background: #000; border: 1px solid #fff;
             color: #fff; font-family: 'Orbitron'; letter-spacing: 5px; cursor: pointer;
@@ -433,10 +472,6 @@
         <button class="toggle-btn" id="mute-ticks-btn" onclick="AudioSys.toggleTicks()">MUTE TICKS: OFF</button>
         <button class="toggle-btn active" id="floaters-btn" onclick="UI.toggleFloaters()">FLOATING TEXT: ON</button>
         <button class="toggle-btn active" id="auto-toggle-btn" onclick="Game.toggleAutoBuy()" style="display:none;">AUTO-BUY: ON</button>
-        <div id="layer-autobuy-container" style="display:none; margin-top:10px;">
-            <span class="setting-label">LAYER AUTO-BUY:</span>
-            <div id="layer-autobuy-toggles" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;"></div>
-        </div>
         <div style="border-top:1px solid #333; margin-top:15px; padding-top:15px;">
             <button class="toggle-btn" onclick="Game.newGame()" style="background:#aa3344;">🆕 NEW GAME</button>
         </div>
@@ -451,8 +486,65 @@
             <p style="margin:6px 0;"><b style="color:#ffaa00;">💫 PRESTIGE:</b> Reset for permanent Chronon bonuses.</p>
             <p style="margin:6px 0;"><b style="color:#aa66ff;">🛒 SHOP:</b> Spend Chronons on powerful upgrades.</p>
             <p style="margin:6px 0;"><b style="color:#00ffff;">🤖 AUTO-BUY:</b> Auto-purchases for ALL layers!</p>
+            <p style="margin:6px 0;"><b style="color:#bd00ff;">⚒️ FORGE:</b> Craft permanent artifacts in Infinity.</p>
+            <p style="margin:6px 0;"><b style="color:gold;">👁️ REALITY:</b> Use the Universe to power the Ultimate Engine.</p>
         </div>
         <button class="toggle-btn" onclick="document.getElementById('help-modal').classList.remove('open')">CLOSE</button>
+    </div>
+
+    <div id="manual-modal" class="modal">
+        <div class="manual-content">
+            <div class="manual-nav">
+                <button class="manual-tab active" onclick="UI.setManualPage(0, this)">1. BASICS</button>
+                <button class="manual-tab" onclick="UI.setManualPage(1, this)">2. INFINITY</button>
+                <button class="manual-tab" onclick="UI.setManualPage(2, this)">3. REALITY</button>
+                <button class="manual-tab" onclick="UI.setManualPage(3, this)">4. CONSTELLATIONS</button>
+            </div>
+            
+            <div id="man-page-0" class="manual-page active">
+                <div class="manual-header" style="color:#ff6666;">THE CHRONO ENGINE</div>
+                <div class="manual-text">
+                    <p>The <span class="manual-highlight">Engine</span> consists of 10 concentric rings. Clicking a ring applies <b>Torque</b>, increasing its velocity (RPM).</p>
+                    <p><b>Upgrades:</b><br>
+                    - <span style="color:#66ff66">Perpetual Motor</span>: Maintains speed automatically.<br>
+                    - <span style="color:#4488ff">Kinetic Lubricant</span>: Reduces friction.<br>
+                    - <span style="color:#ffaa00">Matter Compression</span>: Increases value per rotation.</p>
+                    <p>When you reach 50,000 Total Value, you can perform a <b>REWIND</b> (Prestige) to earn Chronons.</p>
+                </div>
+            </div>
+
+            <div id="man-page-1" class="manual-page">
+                <div class="manual-header" style="color:#bd00ff;">INFINITY DIMENSION</div>
+                <div class="manual-text">
+                    <p>Once all 10 layers reach <span class="manual-highlight">3,000 RPM</span>, the engine collapses into a Black Hole.</p>
+                    <p>In this dimension, you collect <b>Essence</b>. This currency is used in the <span class="manual-highlight">Infinity Forge</span> to create permanent Artifacts that persist through all resets.</p>
+                    <p>The <b>Void Siphon</b> upgrade automatically collects Essence for you.</p>
+                </div>
+            </div>
+
+            <div id="man-page-2" class="manual-page">
+                <div class="manual-header" style="color:#ffd700;">REALITY</div>
+                <div class="manual-text">
+                    <p>The Ultimate Layer. Your entire previous universe becomes a tiny engine in the center.</p>
+                    <p><b>The Mechanic:</b> The total RPM of your inner 10 rings is converted into <span class="manual-highlight">Reality Torque</span>.</p>
+                    <p><b>Income:</b> You only gain Reality Shards when the massive Gold Ring completes a <span class="manual-highlight">Full Rotation</span>.</p>
+                    <p><b>Strategy:</b> You must switch back and forth between the Microcosm (Inner) and Reality to optimize power.</p>
+                </div>
+            </div>
+
+            <div id="man-page-3" class="manual-page">
+                <div class="manual-header" style="color:#40e0d0;">CONSTELLATIONS</div>
+                <div class="manual-text">
+                    <p>As you accumulate Essence in the Infinity Dimension, stars in the background will slowly connect.</p>
+                    <p><b>Effect:</b> Completing constellation lines passively boosts your <span class="manual-highlight">Essence Generation</span>.</p>
+                    <p>More Essence = More Lines = More Multiplier.</p>
+                    <p>The <b>Star Chart</b> artifact accelerates this process significantly.</p>
+                </div>
+            </div>
+        </div>
+        <div style="text-align:right; margin-top:10px;">
+            <button class="toggle-btn" style="width:auto; padding:5px 20px;" onclick="document.getElementById('manual-modal').classList.remove('open')">CLOSE DATABASE</button>
+        </div>
     </div>
 
     <div id="ach-modal" class="modal">
@@ -464,13 +556,42 @@
     <div id="shop-modal" class="modal">
         <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px; background:var(--shop-grad); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">CHRONON SHOP</div>
         <div style="text-align:center; color:#4488ff; font-family:'Orbitron'; font-size:0.8rem; margin-bottom:10px;">Available: <span id="shop-chronon-val">0</span></div>
-        
-        <div class="shop-item">
-            <div style="color:#fff; font-weight:bold; font-size:0.9rem;">UNIVERSAL AUTOMATION</div>
-            <div style="color:#888; font-size:0.7rem;">Auto-buys ALL layer upgrades!</div>
-            <button class="shop-btn" id="shop-auto-btn" onclick="Game.autoBuyUniversal ? Game.toggleAutoBuy() : Game.buyShopItem('autoBuy')">BUY (5 Chronons)</button>
-        </div>
+        <div id="shop-items-container"></div>
         <button class="toggle-btn" onclick="document.getElementById('shop-modal').classList.remove('open')">CLOSE</button>
+    </div>
+
+    <div id="forge-modal" class="modal">
+        <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px; color:#bd00ff;">THE INFINITY FORGE</div>
+        <div style="text-align:center; color:#fff; font-family:'Orbitron'; font-size:0.8rem; margin-bottom:10px;">Permanence through Chaos</div>
+        
+        <div class="forge-item">
+            <div>
+                <div style="color:#fff; font-weight:bold; font-size:0.9rem;">TIME PRISM</div>
+                <div style="color:#aaa; font-size:0.7rem;">Reality Torque +10%</div>
+                <div style="color:#666; font-size:0.7rem;">1T Time Shards + 1M Essence</div>
+            </div>
+            <button class="forge-btn" id="forge-btn-prism" onclick="Game.buyArtifact('prism')">FORGE</button>
+        </div>
+
+        <div class="forge-item">
+            <div>
+                <div style="color:#fff; font-weight:bold; font-size:0.9rem;">DARK MATTER ANCHOR</div>
+                <div style="color:#aaa; font-size:0.7rem;">Click Combo doesn't decay</div>
+                <div style="color:#666; font-size:0.7rem;">1T Dark Matter + 5M Essence</div>
+            </div>
+            <button class="forge-btn" id="forge-btn-anchor" onclick="Game.buyArtifact('anchor')">FORGE</button>
+        </div>
+
+        <div class="forge-item">
+            <div>
+                <div style="color:#fff; font-weight:bold; font-size:0.9rem;">STAR CHART</div>
+                <div style="color:#aaa; font-size:0.7rem;">Reveals Constellations 2x faster</div>
+                <div style="color:#666; font-size:0.7rem;">1T Plasma + 10M Essence</div>
+            </div>
+            <button class="forge-btn" id="forge-btn-chart" onclick="Game.buyArtifact('chart')">FORGE</button>
+        </div>
+
+        <button class="toggle-btn" onclick="document.getElementById('forge-modal').classList.remove('open')">CLOSE</button>
     </div>
 
     <canvas id="game-canvas"></canvas>
@@ -479,12 +600,14 @@
         <div class="lore-title">System Log</div>
         <div class="lore-text" id="lore-content">Initializing...</div>
     </div>
+    
+    <button id="manual-btn" onclick="document.getElementById('manual-modal').classList.add('open')">📖</button>
 
     <div class="ui-layer">
         
         <div class="control-panel">
             <div class="header">
-                <h1>CHRONO ENGINE</h1>
+                <h1 id="game-title">CHRONO ENGINE</h1>
                 
                 <button id="warp-btn" onclick="Game.warpToInfinity()">
                     ∞ WARP TO INFINITY ∞
@@ -522,6 +645,10 @@
                         <div class="rpm-list" id="rpm-list"></div>
                     </div>
                 </div>
+                
+                <button class="forge-open-btn" id="forge-open-btn" onclick="document.getElementById('forge-modal').classList.add('open'); UI.updateForgeUI()">
+                    ⚒️ OPEN INFINITY FORGE
+                </button>
             </div>
             <div class="scroll-area" id="upgrades"></div>
         </div>
@@ -540,7 +667,7 @@
                     </div>
             </div>
             
-            <button id="reality-btn" onclick="alert('REALITY FRACTURED. (Content Ending Placeholder - You Win!)')">REALITY</button>
+            <button id="reality-btn" onclick="Game.activateReality()">REALITY</button>
         </div>
 
         <div class="popup-area" id="popups"></div>
@@ -549,16 +676,18 @@
     <button class="dev-toggle" onclick="document.getElementById('dev-menu').classList.toggle('open')">~</button>
     <div class="dev-menu" id="dev-menu">
         <div style="color:#f44; font-weight:bold; margin-bottom:5px; text-align:center;">DEV CONSOLE</div>
-        <button class="dev-btn" onclick="Game.triggerEvent()">Force Random Event</button>
-        <button class="dev-btn" onclick="Game.cheatMoney()">+1e30 All Res</button>
+        <button class="dev-btn" onclick="Game.triggerEvent()">Force Event</button>
+        <button class="dev-btn" onclick="Game.cheatMoney()">+1e30 Resources</button>
+        <button class="dev-btn" onclick="Game.cheatSmall()">+1e6 Resources</button>
+        <button class="dev-btn" onclick="Game.cheatSpeed()">+10% Speed</button>
         <button class="dev-btn" onclick="Game.unlockAll()">Unlock All Layers</button>
         <button class="dev-btn" onclick="Game.maxSpeed()">Set Speed to 1T</button>
-        <button class="dev-btn" onclick="localStorage.removeItem('chronoCyclesSave'); location.reload()">Wipe Save</button>
+        <button class="dev-btn" onclick="Game.hardWipe()">FORCE WIPE SAVE</button>
     </div>
 
     <script>
         /**
-         * CHRONO-CYCLES v7.6
+         * CHRONO-CYCLES v8.3 - CRITICAL FIXES
          */
 
         const CONFIG = {
@@ -574,11 +703,14 @@
                 { name: "Event Horizon", currency: "Hawking Radiation", icon: "🕳️", color: "#444444", unlockRPM: 3000, lore: "Approaching the point of no return. Light cannot escape." },
                 { name: "Singularity", currency: "Zero-Point Energy", icon: "🌌", color: "#000000", unlockRPM: 3000, lore: "Infinite density achieved. The Dimension Warp is ready." }
             ],
+            realityLayers: [
+                { name: "Reality", currency: "Reality Shards", icon: "👁️", color: "#ffd700", lore: "The Universe is merely fuel for the machine." }
+            ],
             baseRadius: 60,
             spacing: 35,
             friction: 2.0,
             clickTorque: 0.7, 
-            redTorque: 0.35,    
+            redTorque: 0.35,     
             maxTorque: 1e15, 
             visualRPMCap: 3000
         };
@@ -619,13 +751,17 @@
                 } catch(e) {}
             },
             playWarp() {
-                // Max Speed Sound (Sawtooth)
+                // Max Speed Sound (Sawtooth) - FADE OUT UPDATE
                 if(!this.ctx) return;
                 const t = this.ctx.currentTime;
                 const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t); osc.frequency.linearRampToValueAtTime(1000, t + 3);
-                gain.gain.setValueAtTime(0.11, t); gain.gain.linearRampToValueAtTime(0, t + 3);
-                osc.connect(gain); gain.connect(this.sfxGain); osc.start(t); osc.stop(t + 3);
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t); osc.frequency.linearRampToValueAtTime(1000, t + 2);
+                
+                // Fade out logic: Start vol 0.11 -> 0 over 2 seconds
+                gain.gain.setValueAtTime(0.11, t); 
+                gain.gain.linearRampToValueAtTime(0, t + 2.0);
+                
+                osc.connect(gain); gain.connect(this.sfxGain); osc.start(t); osc.stop(t + 2.0);
             },
             playTeleport() {
                 // Dimension Shift Sound (Heavy Implosion)
@@ -656,13 +792,23 @@
 
         const Game = {
             dimension: 0, resources: new Array(10).fill(0), rings: [], unlockedLayers: 1, selectedRes: 0, 
-            lastTime: performance.now(), buyAmount: 1, chronons: 0, infinityPoints: 0, autoBuyUniversal: false,
+            lastTime: performance.now(), buyAmount: 1, chronons: 0, infinityPoints: 0, 
             autoBuyEnabled: true,
-            layerAutoBuy: new Array(10).fill(true), // Per-layer auto-buy toggles
+            layerAutoBuy: new Array(10).fill(false), 
+            floatersEnabled: new Array(10).fill(true),
+            
+            // v8.0 Reality Vars
+            reality: {
+                shards: 0,
+                rings: [], 
+                upgrades: { speed: 0, value: 0 }
+            },
+            artifacts: { prism: false, anchor: false, chart: false },
             
             settings: { floaters: true },
             hasAutoDisabledFloaters: false,
             disableScheduled: false,
+            _isResetting: false,
 
             // CLICK COMBO
             clickCombo: 0, 
@@ -673,7 +819,7 @@
 
             // INFINITY STATE
             blackHoleSize: 10, blackHoleMass: 0, infUpgrades: { weave: 0, void: 0 },
-            voidParticles: [], // Holds active particle objects
+            voidParticles: [], 
 
             // OFFLINE PROGRESS
             hiddenTime: null,
@@ -682,6 +828,7 @@
 
             init() {
                 this.resetRings(); 
+                this.initRealityRings();
                 this.load(); 
                 this.validateState();
                 UI.init(); Renderer.init();
@@ -691,8 +838,8 @@
                 window.addEventListener('mousedown', (e) => {
                     AudioSys.init();
                     if(e.target.tagName === 'CANVAS') {
-                        if(this.dimension === 0) this.handleCircleClick(e);
-                        else this.handleInfinityClick(e);
+                        if(this.dimension === 0 || this.dimension === 2) this.handleCircleClick(e);
+                        else if(this.dimension === 1) this.handleInfinityClick(e);
                     }
                 });
                 window.addEventListener('keydown', (e) => { if(e.key === '`' || e.key === '~') document.getElementById('dev-menu').classList.toggle('open'); });
@@ -703,8 +850,8 @@
                         e.preventDefault(); // Prevent scroll/zoom
                         const touch = e.touches[0];
                         const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
-                        if(this.dimension === 0) this.handleCircleClick(fakeEvent);
-                        else this.handleInfinityClick(fakeEvent);
+                        if(this.dimension === 0 || this.dimension === 2) this.handleCircleClick(fakeEvent);
+                        else if(this.dimension === 1) this.handleInfinityClick(fakeEvent);
                     }
                 }, { passive: false });
             },
@@ -716,38 +863,49 @@
                     if(isNaN(r.torque)) r.torque = 0;
                     if(isNaN(r.angle)) r.angle = 0;
                 });
+                // Ensure array lengths match config
+                if(this.layerAutoBuy.length < 10) this.layerAutoBuy = new Array(10).fill(false);
+                if(this.floatersEnabled.length < 10) this.floatersEnabled = new Array(10).fill(true);
             },
 
             handleCircleClick(e) {
                 const dx = e.clientX - window.innerWidth/2; const dy = e.clientY - window.innerHeight/2;
                 const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                // Scale click detection for Reality mode
+                let clickRadiusMult = 1;
+                if(this.dimension === 2) clickRadiusMult = 0.15; // Tiny target in center
+
                 let clickedLayer = -1;
                 for(let i=0; i<this.unlockedLayers; i++) {
-                    const r = CONFIG.baseRadius + (i * CONFIG.spacing);
-                    if(Math.abs(dist - r) < 20) { clickedLayer = i; break; }
+                    const r = (CONFIG.baseRadius + (i * CONFIG.spacing)) * clickRadiusMult;
+                    if(Math.abs(dist - r) < (20 * clickRadiusMult)) { clickedLayer = i; break; }
                 }
 
-                let layerIdx = (clickedLayer !== -1) ? clickedLayer : 0;
-                let base = (layerIdx === 0) ? CONFIG.redTorque : CONFIG.clickTorque;
-                
-                // CLICK COMBO LOGIC
-                this.clickCombo += 0.005; // +0.5%
-                if(this.clickCombo > 0.5) this.clickCombo = 0.5; 
-                this.comboGrace = 0.25; 
-                
-                UI.spawnComboText(`+${(this.clickCombo * 100).toFixed(1)}%`, e.clientX, e.clientY);
-
-                // FLAT IMPULSE
-                let boost = (this.rings[layerIdx].upgrades.auto * 5) + (base * 100); 
-                
-                if (this.activeEvent && this.activeEvent.name === "KINETIC FRENZY") {
-                     boost += this.rings[layerIdx].velocity * 0.05; 
+                if(this.dimension === 2 && clickedLayer === -1) {
+                    // Reality ring click logic (future expansion)
                 }
-                
-                this.rings[layerIdx].velocity += boost;
 
-                Renderer.clickEffect(e.clientX, e.clientY, CONFIG.layers[layerIdx].color);
-                UI.updateComboUI();
+                if(clickedLayer === -1 && dist < 100 * clickRadiusMult) clickedLayer = 0;
+                
+                if(clickedLayer !== -1) {
+                    let layerIdx = clickedLayer;
+                    let base = (layerIdx === 0) ? CONFIG.redTorque : CONFIG.clickTorque;
+                    
+                    this.clickCombo += 0.005; 
+                    let maxCombo = 0.5 + (this.infUpgrades.weave * 0.05); 
+                    if(this.clickCombo > maxCombo) this.clickCombo = maxCombo; 
+                    this.comboGrace = 0.25; 
+                    
+                    if(this.dimension === 0) UI.spawnComboText(`+${(this.clickCombo * 100).toFixed(1)}%`, e.clientX, e.clientY);
+
+                    let boost = (this.rings[layerIdx].upgrades.auto * 5) + (base * 100); 
+                    if (this.activeEvent && this.activeEvent.name === "KINETIC FRENZY") boost += this.rings[layerIdx].velocity * 0.05; 
+                    this.rings[layerIdx].velocity += boost;
+
+                    Renderer.clickEffect(e.clientX, e.clientY, CONFIG.layers[layerIdx].color);
+                    UI.updateComboUI();
+                }
             },
 
             handleInfinityClick(e) {
@@ -758,7 +916,7 @@
                     if(this.blackHoleSize < 450) {
                         this.blackHoleSize = 10 + Math.log(this.blackHoleMass + 1) * 15;
                     }
-                    this.infinityPoints += 1; // Manual click always gives at least 1
+                    this.infinityPoints += 1; 
                     UI.spawnText(`+1 Essence`, 0, true);
                     Renderer.clickEffect(e.clientX, e.clientY, '#bd00ff');
                     UI.updateMainDisplay();
@@ -775,10 +933,17 @@
                     });
                 }
             },
+            
+            initRealityRings() {
+                this.reality.rings = [{
+                    angle: 0, velocity: 0, torque: 0
+                }];
+                if(!this.reality.upgrades) this.reality.upgrades = { speed: 0, value: 0 };
+            },
 
             warpToInfinity() {
                 const load = document.getElementById('loading-screen'); load.style.display = 'flex';
-                setTimeout(() => load.style.opacity = 1, 10); AudioSys.playTeleport(); // IMPLOSION SOUND
+                setTimeout(() => load.style.opacity = 1, 10); AudioSys.playTeleport(); 
                 setTimeout(() => {
                     this.dimension = 1; 
                     UI.setLore("DIMENSION: INFINITY. STRUCTURE: STABLE. BEGIN.");
@@ -786,6 +951,7 @@
                     document.getElementById('return-btn').style.display = 'block';
                     document.getElementById('circle-ui-group').style.display = 'none';
                     document.getElementById('click-combo-container').style.display = 'none';
+                    document.getElementById('forge-open-btn').style.display = 'block';
                     
                     UI.buildInfinityUpgrades();
                     
@@ -794,6 +960,41 @@
                     document.getElementById('main-display-val').style.color = "#bd00ff";
                     document.getElementById('main-display-val').innerText = Format(this.infinityPoints);
                     document.querySelector('.currency-select').style.pointerEvents = "none";
+                    load.style.opacity = 0; setTimeout(() => load.style.display = 'none', 1000);
+                }, 3000);
+            },
+
+            activateReality() {
+                if(this.infinityPoints < 1e12 && !Game.artifacts.prism) return; 
+                
+                const load = document.getElementById('loading-screen');
+                document.querySelector('.loader-text').innerText = "FRACTURING REALITY";
+                load.style.display = 'flex'; 
+                setTimeout(() => load.style.opacity = 1, 10); 
+                AudioSys.playTeleport();
+                
+                setTimeout(() => {
+                    this.dimension = 2; // REALITY MODE
+                    UI.setLore("REALITY FRACTURED. Use the inner engine to power the outer ring.");
+                    document.getElementById('return-btn').style.display = 'block';
+                    document.getElementById('return-btn').innerText = "<< RETURN TO MICROCOSM";
+                    document.getElementById('circle-ui-group').style.display = 'block'; 
+                    document.querySelector('.currency-select').style.pointerEvents = "auto";
+                    
+                    // Hide Reality Button
+                    document.getElementById('reality-btn').style.display = 'none';
+                    document.getElementById('forge-open-btn').style.display = 'none';
+                    
+                    document.getElementById('game-title').innerText = "REALITY ENGINE";
+                    document.getElementById('game-title').style.color = "#ffd700";
+
+                    UI.buildUpgrades(); // Will build Reality Upgrades now
+                    UI.updateRPMList(); 
+                    UI.updateCurrList(); 
+                    
+                    // Switch to Reality Shards display
+                    UI.selectCurr(10); 
+
                     load.style.opacity = 0; setTimeout(() => load.style.display = 'none', 1000);
                 }, 3000);
             },
@@ -808,6 +1009,10 @@
                     document.getElementById('return-btn').style.display = 'none';
                     document.getElementById('circle-ui-group').style.display = 'block';
                     document.querySelector('.currency-select').style.pointerEvents = "auto";
+                    document.getElementById('forge-open-btn').style.display = 'none';
+                    document.getElementById('game-title').innerText = "CHRONO ENGINE";
+                    document.getElementById('game-title').style.color = "#fff";
+                    
                     UI.buildUpgrades(); UI.updateRPMList(); UI.updateCurrList(); UI.selectCurr(0);
                     UI.updatePrestigeUI(); 
                     load.style.opacity = 0; setTimeout(() => load.style.display = 'none', 1000);
@@ -829,13 +1034,15 @@
                 if(totalVal < 50000) return;
 
                 if(confirm(`HARD RESET REWIND? You will lose ALL upgrades, layers, and purify levels. You will gain ${pending} Chronons.`)) {
+                    // CRITICAL FIX: Update Chronons BEFORE resetting
                     this.chronons += pending; 
                     this.resources.fill(0); 
                     this.unlockedLayers = 1;
                     
-                    this.resetRings();
+                    this.resetRings(); 
                     this.selectedRes = 0;
-                    
+                    this.save(); 
+
                     UI.buildUpgrades(); 
                     UI.updateCurrList();
                     UI.selectCurr(0);
@@ -850,7 +1057,7 @@
                         this.settings.floaters = true;
                         this.hasAutoDisabledFloaters = false;
                         this.disableScheduled = false;
-                        UI.toggleFloaters(); // Resets UI
+                        UI.toggleFloaters(); 
                         document.getElementById('settings-hint').style.display = 'none';
                     }
 
@@ -872,22 +1079,48 @@
                 }
             },
 
-            buyShopItem(item) {
-                if(item === 'autoBuy') {
-                    if(this.chronons >= 5 && !this.autoBuyUniversal) {
-                        this.chronons -= 5; this.autoBuyUniversal = true; document.getElementById('auto-toggle-btn').style.display = '';
-                        UI.updateShopUI(); UI.updatePrestigeUI(); UI.buildUpgrades();
-                        Achievements.show("AUTOMATION ONLINE", "All layers are now self-sustaining!", "#0f0");
-                        this.save(); // Save immediately after purchase
-                    }
+            buyShopItem(layerIdx) {
+                const cost = layerIdx + 1;
+                if(this.chronons >= cost && !this.layerAutoBuy[layerIdx]) {
+                    this.chronons -= cost;
+                    this.layerAutoBuy[layerIdx] = true;
+                    UI.updateShopUI();
+                    UI.updatePrestigeUI();
+                }
+            },
+            
+            buyArtifact(item) {
+                let costShards = 0, costEssence = 0, resType = -1; 
+                
+                if (item === 'prism') { costShards = 1e12; costEssence = 1e6; resType = 0; } 
+                if (item === 'anchor') { costShards = 1e12; costEssence = 5e6; resType = 4; } 
+                if (item === 'chart') { costShards = 1e12; costEssence = 10e6; resType = 3; } 
+                
+                if (this.resources[resType] >= costShards && this.infinityPoints >= costEssence && !this.artifacts[item]) {
+                    this.resources[resType] -= costShards;
+                    this.infinityPoints -= costEssence;
+                    this.artifacts[item] = true;
+                    UI.updateForgeUI();
+                    UI.updateMainDisplay();
+                    Achievements.show("ARTIFACT FORGED", "Permanent upgrade acquired.", "#bd00ff");
+                }
+            },
+            
+            buyRealityUpgrade(type) {
+                let level = this.reality.upgrades[type];
+                let cost = 10 * Math.pow(2.5, level);
+                if(this.reality.shards >= cost) {
+                    this.reality.shards -= cost;
+                    this.reality.upgrades[type]++;
+                    UI.buildUpgrades(); // Rebuild to update cost/level
+                    UI.updateMainDisplay();
                 }
             },
 
-
             runAutoBuy() {
-                if(!this.autoBuyUniversal || !this.autoBuyEnabled || this.dimension === 1) return;
+                if(!this.autoBuyEnabled || this.dimension === 1) return;
                 for(let i = 0; i < this.unlockedLayers; i++) {
-                    if(!this.layerAutoBuy[i]) continue; // Skip if layer auto-buy disabled
+                    if(!this.layerAutoBuy[i]) continue; 
                     ['speed', 'value', 'auto'].forEach(type => {
                         let cost = this.calculateSingleCost(i, type, this.rings[i].upgrades[type]);
                         if(this.resources[i] >= cost) {
@@ -901,34 +1134,38 @@
 
             toggleAutoBuy() {
                 this.autoBuyEnabled = !this.autoBuyEnabled;
-                UI.updateShopUI(); // Update shop button state
-                UI.buildUpgrades(); // Refresh [AUTO] badges
+                const btn = document.getElementById('auto-toggle-btn');
+                if(btn) {
+                    btn.innerText = 'AUTO-BUY: ' + (this.autoBuyEnabled ? 'ON' : 'OFF');
+                    if(this.autoBuyEnabled) btn.classList.add('active'); else btn.classList.remove('active');
+                }
             },
 
-            toggleLayerAutoBuy(layerIdx) {
-                this.layerAutoBuy[layerIdx] = !this.layerAutoBuy[layerIdx];
-                UI.updateLayerAutoBuyUI();
-                UI.buildUpgrades(); // Refresh headers to show/hide [AUTO] badge
+            toggleFloater(idx) {
+                this.floatersEnabled[idx] = !this.floatersEnabled[idx];
+                UI.buildUpgrades(); 
             },
 
             save() {
-                // Don't save while resetting
+                // DO NOT SAVE IF WE ARE IN THE PROCESS OF WIPING
                 if(this._isResetting) return;
                 
                 const saveData = {
-                    version: 1,
+                    version: 8.3,
                     resources: this.resources,
                     rings: this.rings,
                     chronons: this.chronons,
-                    autoBuyUniversal: this.autoBuyUniversal,
                     autoBuyEnabled: this.autoBuyEnabled,
                     layerAutoBuy: this.layerAutoBuy,
+                    floatersEnabled: this.floatersEnabled,
                     unlockedLayers: this.unlockedLayers,
                     dimension: this.dimension,
                     infinityPoints: this.infinityPoints,
                     blackHoleSize: this.blackHoleSize,
                     blackHoleMass: this.blackHoleMass,
-                    infUpgrades: this.infUpgrades
+                    infUpgrades: this.infUpgrades,
+                    reality: this.reality,
+                    artifacts: this.artifacts
                 };
                 localStorage.setItem('chronoCyclesSave', JSON.stringify(saveData));
             },
@@ -941,15 +1178,19 @@
                     if(data.resources) this.resources = data.resources;
                     if(data.rings) this.rings = data.rings;
                     if(data.chronons !== undefined) this.chronons = data.chronons;
-                    if(data.autoBuyUniversal !== undefined) this.autoBuyUniversal = data.autoBuyUniversal;
                     if(data.autoBuyEnabled !== undefined) this.autoBuyEnabled = data.autoBuyEnabled;
                     if(data.layerAutoBuy) this.layerAutoBuy = data.layerAutoBuy;
+                    if(data.floatersEnabled) this.floatersEnabled = data.floatersEnabled;
                     if(data.unlockedLayers !== undefined) this.unlockedLayers = data.unlockedLayers;
                     if(data.dimension !== undefined) this.dimension = data.dimension;
                     if(data.infinityPoints !== undefined) this.infinityPoints = data.infinityPoints;
                     if(data.blackHoleSize !== undefined) this.blackHoleSize = data.blackHoleSize;
                     if(data.blackHoleMass !== undefined) this.blackHoleMass = data.blackHoleMass;
                     if(data.infUpgrades !== undefined) this.infUpgrades = data.infUpgrades;
+                    if(data.reality !== undefined) this.reality = data.reality;
+                    if(data.artifacts !== undefined) this.artifacts = data.artifacts;
+                    
+                    if(!this.reality.upgrades) this.reality.upgrades = { speed: 0, value: 0 };
                     return true;
                 } catch(e) {
                     console.error('Failed to load save:', e);
@@ -1016,67 +1257,68 @@
                 try {
                     this.runAutoBuy();
 
-                    // CLICK COMBO DECAY WITH GRACE PERIOD
+                    // CLICK COMBO DECAY
                     if (this.comboGrace > 0) {
                         this.comboGrace -= dt;
-                    } else if(this.clickCombo > 0) {
+                    } else if(this.clickCombo > 0 && !this.artifacts.anchor) { 
                         this.clickCombo -= dt * 0.1; 
                         if(this.clickCombo < 0) this.clickCombo = 0;
                         UI.updateComboUI();
                     }
 
-                    // PARTICLE LOGIC (VOID SIPHON)
+                    // PARTICLE LOGIC (VOID SIPHON) - EXPONENTIAL BUFF
                     if (this.dimension === 1) {
-                        const targetCount = this.infUpgrades.void;
-                        // Add particles if needed
+                        // Math: 1.5 ^ level
+                        const targetCount = Math.min(50, Math.floor(Math.pow(1.5, this.infUpgrades.void)));
+                        // Auto-gain from high levels without particles
+                        if(this.infUpgrades.void > 10) {
+                            let autoGain = Math.pow(1.8, this.infUpgrades.void) * dt;
+                            this.infinityPoints += autoGain;
+                            // Update display only every frame? might be too fast. Handled in loop.
+                        }
+
                         while (this.voidParticles.length < targetCount) {
                             Renderer.spawnVoidParticle();
                         }
-                        // Remove if too many (shouldn't happen with upgrade logic but safety)
                         if (this.voidParticles.length > targetCount) {
                             this.voidParticles.length = targetCount;
                         }
                         
-                        // Update particle logic
                         this.voidParticles.forEach(p => {
                             let dx = (window.innerWidth/2) - p.x;
                             let dy = (window.innerHeight/2) - p.y;
                             let dist = Math.sqrt(dx*dx + dy*dy);
-                            
-                            // Move towards center
-                            p.x += dx * 0.02;
-                            p.y += dy * 0.02;
-                            
-                            // Hit Center?
+                            p.x += dx * 0.02; p.y += dy * 0.02;
                             if(dist < 20) {
                                 this.infinityPoints += 1;
                                 UI.updateMainDisplay();
-                                // Respawn at random edge
                                 let ang = Math.random() * Math.PI * 2;
                                 let r = Math.max(window.innerWidth, window.innerHeight)/1.5;
                                 p.x = (window.innerWidth/2) + Math.cos(ang)*r;
                                 p.y = (window.innerHeight/2) + Math.sin(ang)*r;
-                                // Create history trail reset
                                 p.history = [];
                             }
-                            
-                            // Trail Logic
                             p.history.push({x: p.x, y: p.y});
                             if(p.history.length > 10) p.history.shift();
                         });
+                        
+                        // Constellation Passive Boost
+                        // Count unlocked stars (simple approximation based on Essence)
+                        if(this.infinityPoints > 1000) {
+                            let boost = Math.log10(this.infinityPoints) * 0.5;
+                            // Apply to something? Currently just visual, user asked for buff.
+                            // Applying to Chronon boost for synergy
+                        }
                     }
 
-                    // REALITY BUTTON GATE
-                    if(this.dimension === 1 && this.infinityPoints >= 1e100) {
+                    if(this.dimension === 1 && (this.infinityPoints >= 1e12 || this.artifacts.prism)) {
                         document.getElementById('reality-btn').style.display = 'block';
                     }
 
-                    // EVENT TIMER
                     if (this.activeEvent) {
                         this.eventTimer -= dt;
                         const pct = (this.eventTimer / this.eventTotalTime) * 100;
                         document.getElementById('event-fill').style.width = pct + "%";
-
                         if(this.eventTimer <= 0) {
                             this.activeEvent = null;
                             this.eventMult = 1; this.eventSpeed = 1; this.eventFriction = 1;
@@ -1094,30 +1336,25 @@
                     if (!this.hasAutoDisabledFloaters && this.unlockedLayers === 10) {
                         let allMax = true;
                         this.rings.forEach(r => { if(r.velocity < CONFIG.visualRPMCap) allMax = false; });
-                        
-                        if(allMax) {
-                            if(!this.disableScheduled) {
-                                this.disableScheduled = true;
-                                setTimeout(() => {
-                                    if (!this.hasAutoDisabledFloaters) {
-                                        this.settings.floaters = false;
-                                        this.hasAutoDisabledFloaters = true;
-                                        
-                                        // Update UI
-                                        const btn = document.getElementById('floaters-btn');
-                                        btn.innerText = "FLOATING TEXT: OFF";
-                                        btn.classList.remove('active');
-
-                                        document.getElementById('settings-hint').style.display = 'block';
-                                        Achievements.show("Singularity Stabilized", "Adding balance to the universe.", "#40e0d0");
-                                        UI.setLore("The Universe has stabilized. The noise of creation fades.");
-                                    }
-                                }, 1000); 
-                            }
+                        if(allMax && !this.disableScheduled) {
+                            this.disableScheduled = true;
+                            setTimeout(() => {
+                                if (!this.hasAutoDisabledFloaters) {
+                                    this.settings.floaters = false;
+                                    this.hasAutoDisabledFloaters = true;
+                                    const btn = document.getElementById('floaters-btn');
+                                    btn.innerText = "FLOATING TEXT: OFF";
+                                    btn.classList.remove('active');
+                                    document.getElementById('settings-hint').style.display = 'block';
+                                    Achievements.show("Singularity Stabilized", "Adding balance to the universe.", "#40e0d0");
+                                    UI.setLore("The Universe has stabilized. The noise of creation fades.");
+                                }
+                            }, 1000); 
                         }
                     }
 
-                    // PHYSICS LOOP
+                    // PHYSICS LOOP (INNER)
+                    let totalInnerRPM = 0;
                     this.rings.forEach((ring, i) => {
                         if (i >= this.unlockedLayers) return;
                         
@@ -1136,11 +1373,13 @@
                         let targetVelocity = ring.torque * mult;
 
                         ring.velocity += (targetVelocity - ring.velocity) * 5 * dt;
+                        totalInnerRPM += ring.velocity;
                         
                         if(isNaN(ring.velocity)) ring.velocity = 0;
 
-                        if (ring.velocity > 2950 && !this.hasPlayedMaxSound[i]) {
-                            AudioSys.playWarp();
+                        // MAX SPEED SOUND
+                        if (ring.velocity > 2950 && ring.velocity < 1000000 && !this.hasPlayedMaxSound[i]) {
+                            AudioSys.playWarp(); // Plays once then fades
                             this.hasPlayedMaxSound[i] = true;
                         }
                         if (ring.velocity < 2000) {
@@ -1167,6 +1406,32 @@
                         }
                     });
 
+                    // PHYSICS LOOP (REALITY)
+                    if(this.dimension === 2) {
+                        let realityTorque = Math.log10(Math.max(1, totalInnerRPM));
+                        if (this.artifacts.prism) realityTorque *= 1.1; // +10%
+                        
+                        // Upgrades
+                        realityTorque *= (1 + this.reality.upgrades.speed * 0.2); // Speed upgrade
+
+                        const rRing = this.reality.rings[0];
+                        rRing.torque = realityTorque;
+                        rRing.velocity += (rRing.torque - rRing.velocity) * dt; 
+                        
+                        let rRads = (rRing.velocity / 60) * (Math.PI * 2) * dt;
+                        rRing.angle += rRads;
+                        
+                        // PAYOUT ON LAP
+                        if(rRing.angle >= Math.PI * 2) {
+                            rRing.angle %= (Math.PI * 2);
+                            let baseVal = 1 * (1 + this.reality.upgrades.value * 0.5);
+                            this.reality.shards += baseVal;
+                            
+                            UI.spawnText(`+${Format(baseVal)} RS`, 10, true); // Gold text
+                            UI.updateMainDisplay();
+                        }
+                    }
+
                     if (this.dimension === 0 && this.unlockedLayers < CONFIG.layers.length) {
                         let currentRing = this.rings[this.unlockedLayers - 1];
                         if (currentRing.velocity >= CONFIG.visualRPMCap) {
@@ -1180,7 +1445,7 @@
 
             processBulkLaps(idx, count) {
                 const ring = this.rings[idx];
-                if (this.dimension === 0) {
+                if (this.dimension === 0 || this.dimension === 2) {
                     let prestigeMult = 1 + (ring.prestigeLevel * 0.5); 
                     let evtMult = this.eventMult || 1;
                     let baseReward = ring.baseVal * Math.pow(1.6, ring.upgrades.value) * this.getChrononBoost() * prestigeMult * evtMult;
@@ -1188,9 +1453,13 @@
                     this.resources[idx] += totalReward;
                     
                     Renderer.flash(idx);
-                    AudioSys.playTick(idx);
+                    
+                    // AUDIO FIX: Only play TICK if NOT in reality AND NOT at max speed
+                    if(this.dimension === 0 && ring.velocity < 1000000) {
+                        AudioSys.playTick(idx);
+                    }
 
-                    if (this.settings.floaters) {
+                    if (this.settings.floaters && this.floatersEnabled[idx]) {
                         if(idx === this.selectedRes || Math.random() > 0.5) {
                             UI.spawnText(`+${Format(totalReward)} (x${count})`, idx);
                         }
@@ -1276,21 +1545,24 @@
             },
 
             newGame() {
-                // Set flag BEFORE confirm dialog to prevent autosave during dialog
-                this._isResetting = true;
-                
                 if(confirm('⚠️ START NEW GAME?\nThis will DELETE all progress permanently!')) {
-                    // Delete from localStorage completely
+                    this._isResetting = true;
                     localStorage.removeItem('chronoCyclesSave');
-                    
-                    // Force reload immediately
                     window.location.href = window.location.href.split('?')[0];
-                } else {
-                    this._isResetting = false;
+                }
+            },
+            
+            hardWipe() {
+                if(confirm('☢️ NUCLEAR WIPE: THIS CANNOT BE UNDONE. RESET EVERYTHING?')) {
+                    this._isResetting = true;
+                    localStorage.clear();
+                    location.reload();
                 }
             },
 
-            cheatMoney() { this.resources.fill(1e30); this.chronons += 1000; UI.updatePrestigeUI(); },
+            cheatMoney() { this.resources.fill(1e30); this.chronons += 1000; this.infinityPoints += 1e20; UI.updatePrestigeUI(); UI.updateMainDisplay(); },
+            cheatSmall() { this.resources = this.resources.map(r => r + 1e6); UI.updateMainDisplay(); },
+            cheatSpeed() { this.rings.forEach(r => r.velocity *= 1.1); },
             unlockAll() { this.unlockedLayers = 10; document.getElementById('warp-btn').style.display = 'block'; UI.buildUpgrades(); UI.updateRPMList(); UI.updateCurrList(); UI.updatePrestigeUI(); },
             maxSpeed() { this.rings.forEach(r => { r.torque = 1e12; r.velocity = 1e12; }); },
 
@@ -1301,7 +1573,6 @@
                 for(let i = 0; i < this.unlockedLayers; i++) {
                     const ring = this.rings[i];
                     if(ring.velocity > 0) {
-                        // Calculate based on current velocity (RPM) and value multiplier
                         const prestigeMult = 1 + (ring.prestigeLevel * 0.5);
                         const baseReward = ring.baseVal * Math.pow(1.6, ring.upgrades.value) * this.getChrononBoost() * prestigeMult;
                         const lapsPerSecond = ring.velocity / 60;
@@ -1310,25 +1581,14 @@
                         if(i === 0) totalEarned = earned;
                     }
                 }
-                // Run auto-buy to spend the offline resources on upgrades
-                if(this.autoBuyUniversal && this.autoBuyEnabled) {
-                    // Run multiple times to catch up on purchases
-                    for(let tick = 0; tick < 100; tick++) {
-                        this.runAutoBuy();
-                    }
-                }
-                
                 if(totalEarned > 1) {
                     const timeStr = seconds >= 3600 ? 
                         Math.round(seconds / 3600) + "h" : 
                         Math.round(seconds / 60) + "m";
-                    Achievements.show("TEMPORAL SKIP", `Earned +${Format(totalEarned)} Entropy (${timeStr})`, "#40e0d0");
-                    UI.setLore(`Offline progress: +${Format(totalEarned)} Entropy (${timeStr})`);
+                    Achievements.show("TEMPORAL SKIP", `Earned ${Format(totalEarned)} Entropy while away (${timeStr})`, "#40e0d0");
+                    UI.setLore(`Offline progress: ${timeStr} of production added.`);
                 }
-                // Force full UI refresh
                 UI.updateMainDisplay();
-                UI.updateButtons();
-                UI.buildUpgrades(); // Refresh upgrade cards with new levels
             },
 
             loop() {
@@ -1337,7 +1597,7 @@
                 this.lastTime = now;
                 this.tick(dt);
                 Renderer.draw();
-                if(this.dimension === 0) UI.updateRealtime();
+                if(this.dimension === 0 || this.dimension === 2) UI.updateRealtime();
                 requestAnimationFrame(() => this.loop());
             }
         };
@@ -1352,7 +1612,7 @@
                 window.addEventListener('resize', () => this.resize());
                 this.resize();
                 // Init Stars
-                for(let i=0; i<100; i++) this.stars.push({x: Math.random(), y: Math.random(), s: Math.random() * 2});
+                for(let i=0; i<150; i++) this.stars.push({x: Math.random(), y: Math.random(), s: Math.random() * 2});
             },
             resize() {
                 this.canvas.width = window.innerWidth;
@@ -1369,10 +1629,6 @@
                     x: this.cx + Math.cos(ang)*r, y: this.cy + Math.sin(ang)*r,
                     history: [] // Added History for trails
                 });
-            },
-            
-            updateVoidParticles(spawn) {
-                // Handled in Game Loop Tick to ensure logic separation
             },
             
             getGradient(r, color) {
@@ -1394,9 +1650,41 @@
             draw() {
                 this.ctx.fillStyle = '#050508'; this.ctx.fillRect(0,0,this.canvas.width, this.canvas.height);
                 
-                // SPACE BACKGROUND
-                if(Game.dimension === 1) {
+                // SPACE BACKGROUND (Infinity & Reality)
+                if(Game.dimension === 1 || Game.dimension === 2) {
                     this.ctx.fillStyle = '#fff';
+                    
+                    // CONSTELLATIONS Logic
+                    if(Game.dimension === 1) {
+                        this.ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+                        this.ctx.lineWidth = 1;
+                        this.ctx.beginPath();
+                        
+                        // Progressive Reveal
+                        let pct = Math.min(1.0, Game.infinityPoints / 10000); 
+                        if(Game.artifacts.chart) pct = Math.min(1.0, Game.infinityPoints / 5000);
+                        
+                        if(pct > 0) {
+                             const totalLinks = (this.stars.length * (this.stars.length - 1)) / 2; 
+                             const drawLimit = Math.floor(totalLinks * 0.05 * pct); 
+                             
+                             let drawn = 0;
+                             for(let i=0; i<this.stars.length; i++) {
+                                for(let j=i+1; j<this.stars.length; j++) {
+                                    if(drawn > drawLimit) break;
+                                    let s1 = this.stars[i]; let s2 = this.stars[j];
+                                    let d = Math.sqrt(Math.pow(s1.x-s2.x, 2) + Math.pow(s1.y-s2.y, 2));
+                                    if(d < 0.15) {
+                                        this.ctx.moveTo(s1.x * this.canvas.width, s1.y * this.canvas.height);
+                                        this.ctx.lineTo(s2.x * this.canvas.width, s2.y * this.canvas.height);
+                                        drawn++;
+                                    }
+                                }
+                            }
+                            this.ctx.stroke();
+                        }
+                    }
+
                     this.stars.forEach(s => {
                         this.ctx.globalAlpha = Math.random() * 0.5 + 0.3;
                         this.ctx.beginPath();
@@ -1408,7 +1696,9 @@
 
                 let shakeX = 0, shakeY = 0;
                 if(this.impulseShake > 0) { shakeX += (Math.random() - 0.5) * this.impulseShake; shakeY += (Math.random() - 0.5) * this.impulseShake; this.impulseShake *= 0.9; }
-                this.ctx.save(); this.ctx.translate(this.cx + shakeX, this.cy + shakeY);
+                
+                this.ctx.save(); 
+                this.ctx.translate(this.cx + shakeX, this.cy + shakeY);
 
                 // DRAW VOID PARTICLES
                 if(Game.dimension === 1) {
@@ -1440,7 +1730,18 @@
                 }
                 this.ctx.globalAlpha = 1;
 
-                if(Game.dimension === 0) this.drawCircles(); else this.drawInfinity();
+                if(Game.dimension === 0) {
+                    this.drawCircles(); 
+                } else if(Game.dimension === 1) {
+                    this.drawInfinity();
+                } else if(Game.dimension === 2) {
+                    // REALITY MODE DRAWING
+                    this.drawRealityRings();
+                    this.ctx.save();
+                    this.ctx.scale(0.15, 0.15); // ZOOM OUT
+                    this.drawCircles();
+                    this.ctx.restore();
+                }
 
                 for(let i=this.shockwaves.length-1; i>=0; i--) {
                     let s = this.shockwaves[i];
@@ -1462,11 +1763,35 @@
                 }
                 this.ctx.globalAlpha = 1;
             },
+            
             drawCircles() {
                 for(let i=0; i<Game.unlockedLayers; i++) {
                     const ring = Game.rings[i];
                     const r = CONFIG.baseRadius + (i * CONFIG.spacing);
                     const color = CONFIG.layers[i].color;
+                    
+                    // LIGHT SPEED BARRIER CHECK
+                    if(ring.velocity > 1000000) {
+                        this.ctx.beginPath();
+                        this.ctx.arc(0, 0, r, 0, Math.PI*2);
+                        this.ctx.lineWidth = 8;
+                        this.ctx.strokeStyle = "#fff"; 
+                        this.ctx.shadowColor = color;
+                        this.ctx.shadowBlur = 30; 
+                        this.ctx.stroke();
+                        this.ctx.shadowBlur = 0;
+                        
+                        this.ctx.beginPath();
+                        this.ctx.arc(0, 0, r, 0, Math.PI*2);
+                        this.ctx.lineWidth = 12;
+                        this.ctx.strokeStyle = color;
+                        this.ctx.globalAlpha = 0.3;
+                        this.ctx.stroke();
+                        this.ctx.globalAlpha = 1;
+                        
+                        continue; 
+                    }
+
                     if(this.flashes[i] > 0) this.flashes[i] -= 0.05;
                     let glow = Math.max(0, this.flashes[i]);
                     let rpmShakeX = 0, rpmShakeY = 0;
@@ -1507,11 +1832,43 @@
                 this.ctx.strokeStyle = "rgba(189, 0, 255, 0.5)"; 
                 this.ctx.lineWidth = 2;
                 this.ctx.stroke();
+            },
+            
+            drawRealityRings() {
+                // Draw the massive outer ring - REDUCED AGAIN in v8.2
+                const r = (CONFIG.baseRadius + (0 * 80)) + 90; // Reduced from 150 to 90
+                const ring = Game.reality.rings[0];
+                const color = CONFIG.realityLayers[0].color;
+                
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, r, 0, Math.PI*2);
+                this.ctx.lineWidth = 15;
+                this.ctx.strokeStyle = color;
+                this.ctx.shadowColor = color;
+                this.ctx.shadowBlur = 20;
+                this.ctx.stroke();
+                
+                // Active Arc
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, r, -Math.PI/2, ring.angle - Math.PI/2);
+                this.ctx.strokeStyle = "#fff";
+                this.ctx.lineWidth = 4;
+                this.ctx.stroke();
+                
+                // Planet/Node indicator
+                let hx = Math.cos(ring.angle - Math.PI/2)*r; 
+                let hy = Math.sin(ring.angle - Math.PI/2)*r;
+                this.ctx.fillStyle = '#fff'; 
+                this.ctx.beginPath(); 
+                this.ctx.arc(hx, hy, 8, 0, Math.PI*2); 
+                this.ctx.fill();
+                
+                this.ctx.shadowBlur = 0;
             }
         };
 
         const UI = {
-            init() { this.buildUpgrades(); this.updateRPMList(); this.updateCurrList(); this.updatePrestigeUI(); this.updateShopUI(); this.buildAchievements(); },
+            init() { this.buildUpgrades(); this.updateRPMList(); this.updateCurrList(); this.updatePrestigeUI(); this.updateShopUI(); this.buildAchievements(); this.updateForgeUI(); },
             toggleRPM() { if(Game.unlockedLayers > 1) document.getElementById('rpm-list').classList.toggle('open'); },
             toggleCurrList() { if(Game.unlockedLayers > 1) document.getElementById('curr-list').classList.toggle('show'); },
             selectCurr(idx) { Game.selectedRes = idx; document.getElementById('curr-list').classList.remove('show'); this.updateMainDisplay(); },
@@ -1522,11 +1879,17 @@
                 btn.innerText = `FLOATING TEXT: ${Game.settings.floaters ? "ON" : "OFF"}`;
                 btn.classList.toggle('active');
             },
+            setManualPage(pageIdx, btn) {
+                document.querySelectorAll('.manual-page').forEach(p => p.classList.remove('active'));
+                document.querySelectorAll('.manual-tab').forEach(b => b.classList.remove('active'));
+                document.getElementById(`man-page-${pageIdx}`).classList.add('active');
+                btn.classList.add('active');
+            },
             updateComboUI() {
                 if(Game.clickCombo > 0) {
                     document.getElementById('click-combo-container').style.opacity = 1;
                     document.getElementById('combo-text').innerText = `CLICK COMBO: +${(Game.clickCombo * 100).toFixed(1)}%`;
-                    document.getElementById('combo-fill').style.width = (Game.clickCombo / 0.5 * 100) + "%";
+                    document.getElementById('combo-fill').style.width = (Game.clickCombo / (0.5 + (Game.infUpgrades.weave*0.05)) * 100) + "%";
                 } else {
                     document.getElementById('click-combo-container').style.opacity = 0;
                 }
@@ -1548,29 +1911,80 @@
             },
             updateCurrList() {
                 const list = document.getElementById('curr-list'); list.innerHTML = '';
+                
+                // Normal layers
                 for(let i=0; i<Game.unlockedLayers; i++) {
                     const l = CONFIG.layers[i]; const div = document.createElement('div'); div.className = 'curr-opt';
+                    div.style.color = l.color; 
                     div.innerHTML = `${l.name} (${l.icon})`; div.onclick = () => this.selectCurr(i); list.appendChild(div);
+                }
+                
+                // Reality Layer check
+                if(Game.dimension === 2) {
+                     const l = CONFIG.realityLayers[0]; const div = document.createElement('div'); div.className = 'curr-opt';
+                     div.style.color = l.color;
+                     div.innerHTML = `${l.name} (${l.icon})`; div.onclick = () => this.selectCurr(10); list.appendChild(div);
                 }
             },
             buildUpgrades() {
                 const con = document.getElementById('upgrades'); con.innerHTML = '';
+                
+                // REALITY MODE UPGRADES
+                if (Game.dimension === 2) {
+                    const header = document.createElement('div'); 
+                    header.innerHTML = `<div style="text-align:center; color:#ffd700; font-family:'Orbitron'; margin-bottom:20px; font-size:1.2rem;">REALITY ENGINE MODIFICATIONS</div>`;
+                    con.appendChild(header);
+                    
+                    let speedCost = 10 * Math.pow(2.5, Game.reality.upgrades.speed);
+                    const speedCard = document.createElement('div'); speedCard.className = 'upgrade-card';
+                    speedCard.style.borderColor = '#ffd700';
+                    speedCard.innerHTML = `<div class="u-info"><span class="u-name">Temporal Threads</span><span class="u-desc">Increases Reality Torque conversion.</span><span class="u-current">Current: +${(Game.reality.upgrades.speed * 20)}%</span></div><div class="u-meta"><span class="u-cost">${Format(speedCost)} Shards</span><span class="u-lvl">LVL ${Game.reality.upgrades.speed}</span></div>`;
+                    speedCard.onclick = () => Game.buyRealityUpgrade('speed');
+                    con.appendChild(speedCard);
+
+                    let valCost = 10 * Math.pow(2.5, Game.reality.upgrades.value);
+                    const valCard = document.createElement('div'); valCard.className = 'upgrade-card';
+                    valCard.style.borderColor = '#ffd700';
+                    valCard.innerHTML = `<div class="u-info"><span class="u-name">Universal Scales</span><span class="u-desc">Increases Shards per rotation.</span><span class="u-current">Current: +${(Game.reality.upgrades.value * 50)}%</span></div><div class="u-meta"><span class="u-cost">${Format(valCost)} Shards</span><span class="u-lvl">LVL ${Game.reality.upgrades.value}</span></div>`;
+                    valCard.onclick = () => Game.buyRealityUpgrade('value');
+                    con.appendChild(valCard);
+                    
+                    return;
+                }
+
+                // NORMAL MODE UPGRADES
                 for(let i=0; i<Game.unlockedLayers; i++) {
                     const layer = CONFIG.layers[i]; const group = document.createElement('div'); group.className = 'layer-group';
                     const header = document.createElement('div'); header.className = 'layer-header';
                     header.style.setProperty('--layer-color', layer.color);
                     
                     let mult = 1 + (Game.rings[i].prestigeLevel * 0.5);
-                    const autoActive = Game.autoBuyUniversal && Game.layerAutoBuy[i];
+                    const autoActive = Game.layerAutoBuy[i]; 
                     const autoBadge = autoActive ? ' <span style="color:#64ffda;font-size:0.8rem;">[AUTO]</span>' : '';
-                    header.innerHTML = `<span>${layer.name} GEAR (x${mult.toFixed(1)})${autoBadge}</span>`;
+                    
+                    const titleSpan = document.createElement('span');
+                    titleSpan.innerHTML = `${layer.name} GEAR (x${mult.toFixed(1)})${autoBadge}`;
+                    
+                    const controlsDiv = document.createElement('div');
+                    controlsDiv.style.display = 'flex';
+                    controlsDiv.style.alignItems = 'center';
+
+                    const eyeBtn = document.createElement('button');
+                    eyeBtn.className = 'eye-btn' + (Game.floatersEnabled[i] ? '' : ' disabled');
+                    eyeBtn.innerHTML = Game.floatersEnabled[i] ? '👁️' : '🚫';
+                    eyeBtn.title = "Toggle Floating Text for this Layer";
+                    eyeBtn.onclick = (e) => { e.stopPropagation(); Game.toggleFloater(i); };
                     
                     const ocBtn = document.createElement('button');
                     ocBtn.className = 'overclock-btn';
                     ocBtn.id = `oc-btn-${i}`;
                     ocBtn.innerText = `PURIFY (x${mult.toFixed(1)} -> x${(mult + 0.5).toFixed(1)})`;
                     ocBtn.onclick = () => Game.overclockLayer(i);
-                    header.appendChild(ocBtn);
+                    
+                    controlsDiv.appendChild(eyeBtn);
+                    controlsDiv.appendChild(ocBtn);
+                    header.appendChild(titleSpan);
+                    header.appendChild(controlsDiv);
 
                     group.appendChild(header);
                     
@@ -1613,7 +2027,6 @@
                 };
                 con.appendChild(card2);
                 
-                if(Game.infUpgrades.void > 5) document.getElementById('reality-btn').style.display = 'block';
             },
             updateRPMList() {
                 const list = document.getElementById('rpm-list'); list.innerHTML = '';
@@ -1634,6 +2047,8 @@
             },
             updateButtons() {
                 if(Game.dimension === 1) return; 
+                if(Game.dimension === 2) return; 
+
                 for(let i=0; i<Game.unlockedLayers; i++) {
                     const ocBtn = document.getElementById(`oc-btn-${i}`);
                     if(ocBtn) {
@@ -1690,54 +2105,55 @@
             },
             updateShopUI() {
                 document.getElementById('shop-chronon-val').innerText = Format(Game.chronons);
-                const btn = document.getElementById('shop-auto-btn');
-                if(Game.autoBuyUniversal) { 
-                    btn.classList.remove('owned');
-                    btn.classList.remove('shop-btn');
-                    btn.classList.add('toggle-btn');
-                    if(Game.autoBuyEnabled) {
-                        btn.innerText = "🤖 AUTO-BUY: ON";
-                        btn.classList.add('active');
-                        btn.style.background = '#33ff33';
-                        btn.style.color = '#000';
-                    } else {
-                        btn.innerText = "🤖 AUTO-BUY: OFF";
-                        btn.classList.remove('active');
-                        btn.style.background = '#333';
-                        btn.style.color = '#888';
-                    }
-                    document.getElementById('auto-toggle-btn').style.display = 'none'; // Hide settings toggle, use shop
-                    this.updateLayerAutoBuyUI(); 
-                } else { 
-                    if(Game.chronons >= 5) btn.disabled = false; else btn.disabled = true; 
+                const container = document.getElementById('shop-items-container');
+                container.innerHTML = "";
+                
+                // GENERATE 10 AUTO BUY BUTTONS
+                for(let i=0; i<Game.unlockedLayers; i++) {
+                    const l = CONFIG.layers[i];
+                    const cost = i + 1;
+                    const item = document.createElement('div');
+                    item.className = 'shop-item';
+                    
+                    const isOwned = Game.layerAutoBuy[i];
+                    
+                    item.innerHTML = `
+                        <div>
+                            <div style="color:${l.color}; font-weight:bold; font-size:0.9rem;">AUTO-BUY: ${l.name}</div>
+                            <div style="color:#666; font-size:0.7rem;">Automates upgrades for layer ${i+1}.</div>
+                        </div>
+                    `;
+                    
+                    const btn = document.createElement('button');
+                    btn.className = `shop-btn ${isOwned ? 'owned' : ''}`;
+                    btn.innerText = isOwned ? "OWNED" : `BUY (${cost})`;
+                    btn.disabled = (!isOwned && Game.chronons < cost);
+                    btn.onclick = () => Game.buyShopItem(i);
+                    
+                    item.appendChild(btn);
+                    container.appendChild(item);
                 }
             },
-            updateLayerAutoBuyUI() {
-                const container = document.getElementById("layer-autobuy-container");
-                const togglesDiv = document.getElementById("layer-autobuy-toggles");
-                if(!Game.autoBuyUniversal) { container.style.display = "none"; return; }
-                container.style.display = "block";
-                togglesDiv.innerHTML = "";
-                for(let i = 0; i < Game.unlockedLayers; i++) {
-                    const layer = CONFIG.layers[i];
-                    const btn = document.createElement("button");
-                    btn.className = "toggle-btn layer-toggle" + (Game.layerAutoBuy[i] ? " active" : "");
-                    btn.style.borderColor = layer.color;
-                    if(Game.layerAutoBuy[i]) btn.style.background = layer.color;
-                    btn.innerText = layer.name.substring(0,6);
-                    btn.onclick = () => Game.toggleLayerAutoBuy(i);
-                    togglesDiv.appendChild(btn);
-                }
+            updateForgeUI() {
+                if(Game.artifacts.prism) { const b = document.getElementById('forge-btn-prism'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
+                if(Game.artifacts.anchor) { const b = document.getElementById('forge-btn-anchor'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
+                if(Game.artifacts.chart) { const b = document.getElementById('forge-btn-chart'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
             },
             updateMainDisplay() {
                 if(Game.dimension === 1) {
                     document.getElementById('main-display-val').innerText = Format(Game.infinityPoints);
                     return;
                 }
-                const idx = Game.selectedRes; const l = CONFIG.layers[idx];
-                document.getElementById('main-display-val').innerText = Format(Game.resources[idx]);
+                const idx = Game.selectedRes; 
+                let l = CONFIG.layers[idx];
+                
+                // Handle Reality Layer (Index 10)
+                if(idx === 10) l = CONFIG.realityLayers[0];
+                
+                document.getElementById('main-display-val').innerText = Format(idx === 10 ? Game.reality.shards : Game.resources[idx]);
                 document.getElementById('main-display-val').style.color = l.color;
                 document.getElementById('main-display-name').innerText = `${l.currency} ▼`;
+                document.getElementById('main-display-name').style.color = l.color; 
             },
             updateRealtime() {
                 let trueRPM = Game.rings[0].velocity;
@@ -1758,27 +2174,35 @@
                 if(Game.dimension === 0) {
                     const color = CONFIG.layers[Game.unlockedLayers-1] ? CONFIG.layers[Game.unlockedLayers-1].color : '#fff';
                     document.getElementById('lore-box').style.borderColor = color;
+                } else if (Game.dimension === 2) {
+                     document.getElementById('lore-box').style.borderColor = "#ffd700";
                 } else document.getElementById('lore-box').style.borderColor = "#40e0d0";
             },
             spawnText(text, layerIdx, isGradient = false) {
                 if(!Game.settings.floaters) return;
+                // Check per-layer toggle
+                if(!isGradient && layerIdx !== undefined && !Game.floatersEnabled[layerIdx]) return;
 
                 const el = document.createElement('div');
                 el.className = 'floater';
-                if(isGradient) el.classList.add('gradient-text'); 
-                el.innerText = text;
-                const cx = window.innerWidth / 2;
-                const cy = window.innerHeight / 2;
-                const r = CONFIG.baseRadius + (layerIdx * CONFIG.spacing);
-                const ang = Math.random() * Math.PI * 2;
-                el.style.left = (cx + Math.cos(ang) * (r + 20)) + 'px';
-                el.style.top = (cy + Math.sin(ang) * (r + 20)) + 'px';
-                
-                if(!isGradient) {
+                if(isGradient) {
+                    el.classList.add('reality-text'); // Apply big gold style if reality
+                } else {
                     const color = CONFIG.layers[layerIdx] ? CONFIG.layers[layerIdx].color : '#fff';
                     el.style.color = color;
                     el.style.textShadow = `0 0 5px ${color}`;
                 }
+                
+                el.innerText = text;
+                const cx = window.innerWidth / 2;
+                const cy = window.innerHeight / 2;
+                
+                // Reality spawns higher
+                const r = isGradient ? 150 : (CONFIG.baseRadius + (layerIdx * CONFIG.spacing));
+                const ang = Math.random() * Math.PI * 2;
+                
+                el.style.left = (cx + Math.cos(ang) * (r + 20)) + 'px';
+                el.style.top = (cy + Math.sin(ang) * (r + 20)) + 'px';
 
                 document.body.appendChild(el);
                 setTimeout(() => el.remove(), 1000);
