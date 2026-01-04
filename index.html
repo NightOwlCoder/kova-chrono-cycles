@@ -437,6 +437,10 @@
             <span class="setting-label">LAYER AUTO-BUY:</span>
             <div id="layer-autobuy-toggles" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;"></div>
         </div>
+        <div style="border-top:1px solid #333; margin-top:15px; padding-top:15px;">
+            <button class="toggle-btn" onclick="location.reload()" style="background:#4a4a5a;">🔄 RESTART GAME</button>
+            <button class="toggle-btn" onclick="if(confirm('⚠️ This will PERMANENTLY delete all progress! Are you sure?')) { localStorage.removeItem('chronoCyclesSave'); location.reload(); }" style="background:#aa3344; margin-top:5px;">🗑️ WIPE SAVE DATA</button>
+        </div>
     </div>
 
     <div id="help-modal" class="modal" style="width:300px;">
@@ -550,7 +554,7 @@
         <button class="dev-btn" onclick="Game.cheatMoney()">+1e30 All Res</button>
         <button class="dev-btn" onclick="Game.unlockAll()">Unlock All Layers</button>
         <button class="dev-btn" onclick="Game.maxSpeed()">Set Speed to 1T</button>
-        <button class="dev-btn" onclick="localStorage.clear(); location.reload()">Wipe Save</button>
+        <button class="dev-btn" onclick="localStorage.removeItem('chronoCyclesSave'); location.reload()">Wipe Save</button>
     </div>
 
     <script>
@@ -1530,7 +1534,9 @@
                     header.style.setProperty('--layer-color', layer.color);
                     
                     let mult = 1 + (Game.rings[i].prestigeLevel * 0.5);
-                    header.innerHTML = `<span>${layer.name} GEAR (x${mult.toFixed(1)})</span>`;
+                    const autoActive = Game.autoBuyUniversal && Game.layerAutoBuy[i];
+                    const autoBadge = autoActive ? ' <span style="color:#64ffda;font-size:0.8rem;">[AUTO]</span>' : '';
+                    header.innerHTML = `<span>${layer.name} GEAR (x${mult.toFixed(1)})${autoBadge}</span>`;
                     
                     const ocBtn = document.createElement('button');
                     ocBtn.className = 'overclock-btn';
