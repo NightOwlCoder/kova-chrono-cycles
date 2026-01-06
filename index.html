@@ -1937,16 +1937,20 @@
                     
                     let speedCost = 10 * Math.pow(2.5, Game.reality.upgrades.speed);
                     const speedCard = document.createElement('div'); speedCard.className = 'upgrade-card';
+                    speedCard.id = 'reality-btn-speed';
                     speedCard.style.borderColor = '#ffd700';
                     speedCard.innerHTML = `<div class="u-info"><span class="u-name">Temporal Threads</span><span class="u-desc">Increases Reality Torque conversion.</span><span class="u-current">Current: +${(Game.reality.upgrades.speed * 20)}%</span></div><div class="u-meta"><span class="u-cost">${Format(speedCost)} Shards</span><span class="u-lvl">LVL ${Game.reality.upgrades.speed}</span></div>`;
                     speedCard.onclick = () => Game.buyRealityUpgrade('speed');
+                    if(Game.reality.shards < speedCost) { speedCard.classList.add('locked'); }
                     con.appendChild(speedCard);
 
                     let valCost = 10 * Math.pow(2.5, Game.reality.upgrades.value);
                     const valCard = document.createElement('div'); valCard.className = 'upgrade-card';
+                    valCard.id = 'reality-btn-value';
                     valCard.style.borderColor = '#ffd700';
                     valCard.innerHTML = `<div class="u-info"><span class="u-name">Universal Scales</span><span class="u-desc">Increases Shards per rotation.</span><span class="u-current">Current: +${(Game.reality.upgrades.value * 50)}%</span></div><div class="u-meta"><span class="u-cost">${Format(valCost)} Shards</span><span class="u-lvl">LVL ${Game.reality.upgrades.value}</span></div>`;
                     valCard.onclick = () => Game.buyRealityUpgrade('value');
+                    if(Game.reality.shards < valCost) { valCard.classList.add('locked'); }
                     con.appendChild(valCard);
                     
                     return;
@@ -2047,7 +2051,31 @@
             },
             updateButtons() {
                 if(Game.dimension === 1) return; 
-                if(Game.dimension === 2) return; 
+                if(Game.dimension === 2) {
+                    // Update Reality upgrade buttons
+                    let speedCost = 10 * Math.pow(2.5, Game.reality.upgrades.speed);
+                    const speedBtn = document.getElementById('reality-btn-speed');
+                    if(speedBtn) {
+                        if(Game.reality.shards >= speedCost) {
+                            speedBtn.classList.remove('locked');
+                            speedBtn.style.borderColor = '#ffd700';
+                        } else {
+                            speedBtn.classList.add('locked');
+                        }
+                    }
+                    
+                    let valCost = 10 * Math.pow(2.5, Game.reality.upgrades.value);
+                    const valBtn = document.getElementById('reality-btn-value');
+                    if(valBtn) {
+                        if(Game.reality.shards >= valCost) {
+                            valBtn.classList.remove('locked');
+                            valBtn.style.borderColor = '#ffd700';
+                        } else {
+                            valBtn.classList.add('locked');
+                        }
+                    }
+                    return;
+                } 
 
                 for(let i=0; i<Game.unlockedLayers; i++) {
                     const ocBtn = document.getElementById(`oc-btn-${i}`);
