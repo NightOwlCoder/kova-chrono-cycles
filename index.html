@@ -455,6 +455,7 @@
             <button class="icon-btn" onclick="document.getElementById('ach-modal').classList.toggle('open'); UI.showAchievements()">🏆</button>
             <button class="icon-btn" onclick="document.getElementById('settings-modal').classList.toggle('open')">⚙</button>
             <button class="icon-btn" onclick="document.getElementById('help-modal').classList.toggle('open')">❓</button>
+            <button class="icon-btn" id="profile-btn" onclick="document.getElementById('profile-modal').classList.toggle('open'); UI.buildProfileMenu()" style="display:none;">👤</button>
         </div>
         <span id="settings-hint">You can turn points back on here &#8593;</span>
     </div>
@@ -472,6 +473,7 @@
         <button class="toggle-btn" id="mute-ticks-btn" onclick="AudioSys.toggleTicks()">MUTE TICKS: OFF</button>
         <button class="toggle-btn active" id="floaters-btn" onclick="UI.toggleFloaters()">FLOATING TEXT: ON</button>
         <button class="toggle-btn active" id="auto-toggle-btn" onclick="Game.toggleAutoBuy()" style="display:none;">AUTO-BUY: ON</button>
+        <button class="toggle-btn" onclick="document.getElementById('autobuy-modal').classList.add('open'); UI.buildAutoBuyMenu()">⚙️ LAYER AUTO-BUY</button>
         <div style="border-top:1px solid #333; margin-top:15px; padding-top:15px;">
             <button class="toggle-btn" onclick="Game.newGame()" style="background:#aa3344;">🆕 NEW GAME</button>
         </div>
@@ -509,7 +511,9 @@
                     - <span style="color:#66ff66">Perpetual Motor</span>: Maintains speed automatically.<br>
                     - <span style="color:#4488ff">Kinetic Lubricant</span>: Reduces friction.<br>
                     - <span style="color:#ffaa00">Matter Compression</span>: Increases value per rotation.</p>
-                    <p>When you reach 50,000 Total Value, you can perform a <b>REWIND</b> (Prestige) to earn Chronons.</p>
+                    <p>When you reach 50,000 Total Value, you can perform a <b>REWIND</b> (Prestige) to earn Chronons. Chronon gain is exponential - each 10x increase in value gives more Chronons.</p>
+                    <p><b>Purify:</b> When all 3 upgrades reach level 10 (first time), you can Purify a layer for a +50% multiplier. Each subsequent Purify requires +5 more levels (15, 20, 25...).</p>
+                    <p><b>Auto-Buy:</b> In Settings, use "LAYER AUTO-BUY" to enable/disable automatic upgrades for each layer individually. Costs scale exponentially per layer.</p>
                 </div>
             </div>
 
@@ -528,6 +532,9 @@
                     <p>The Ultimate Layer. Your entire previous universe becomes a tiny engine in the center.</p>
                     <p><b>The Mechanic:</b> The total RPM of your inner 10 rings is converted into <span class="manual-highlight">Reality Torque</span>.</p>
                     <p><b>Income:</b> You only gain Reality Shards when the massive Gold Ring completes a <span class="manual-highlight">Full Rotation</span>.</p>
+                    <p><b>Clicking:</b> You can click the Reality ring (the large gold ring) to add torque directly, though it's less effective than clicking inner rings.</p>
+                    <p><b>RPM Display:</b> Click any ring name in the RPM list to change which RPM is displayed in the main display. The Reality ring RPM is also shown in the list.</p>
+                    <p><b>Profiles:</b> Use the Profile button (👤) in the top-right to switch between different game states. Useful for trying different strategies without losing progress.</p>
                     <p><b>Strategy:</b> You must switch back and forth between the Microcosm (Inner) and Reality to optimize power.</p>
                 </div>
             </div>
@@ -592,6 +599,20 @@
         </div>
 
         <button class="toggle-btn" onclick="document.getElementById('forge-modal').classList.remove('open')">CLOSE</button>
+    </div>
+
+    <div id="profile-modal" class="modal">
+        <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px;">PROFILES</div>
+        <div style="text-align:center; color:#aaa; font-size:0.8rem; margin-bottom:10px;">Switch between game states</div>
+        <div id="profile-list"></div>
+        <button class="toggle-btn" onclick="document.getElementById('profile-modal').classList.remove('open')">CLOSE</button>
+    </div>
+
+    <div id="autobuy-modal" class="modal">
+        <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px;">LAYER AUTO-BUY</div>
+        <div style="text-align:center; color:#aaa; font-size:0.8rem; margin-bottom:10px;">Enable/Disable auto-buy per layer</div>
+        <div id="autobuy-list"></div>
+        <button class="toggle-btn" onclick="document.getElementById('autobuy-modal').classList.remove('open')">CLOSE</button>
     </div>
 
     <canvas id="game-canvas"></canvas>
@@ -791,7 +812,7 @@
         };
 
         const Game = {
-            dimension: 0, resources: new Array(10).fill(0), rings: [], unlockedLayers: 1, selectedRes: 0, 
+            dimension: 0, resources: new Array(10).fill(0), rings: [], unlockedLayers: 1, selectedRes: 0, selectedRPM: 0, 
             lastTime: performance.now(), buyAmount: 1, chronons: 0, infinityPoints: 0, 
             autoBuyEnabled: true,
             layerAutoBuy: new Array(10).fill(false), 
@@ -803,6 +824,11 @@
                 rings: [], 
                 upgrades: { speed: 0, value: 0 }
             },
+            profiles: {
+                main: null,
+                challenges: {}
+            },
+            currentProfile: 'main',
             artifacts: { prism: false, anchor: false, chart: false },
             
             settings: { floaters: true },
@@ -883,7 +909,18 @@
                 }
 
                 if(this.dimension === 2 && clickedLayer === -1) {
-                    // Reality ring click logic (future expansion)
+                    // Reality ring click detection
+                    const realityRadius = (CONFIG.baseRadius + 90); // Same as drawRealityRings
+                    if(Math.abs(dist - realityRadius) < 25) {
+                        // Clicked on Reality ring - add torque (reduced amount)
+                        const realityTorque = CONFIG.clickTorque * 0.3; // 30% of normal click torque
+                        if(this.reality.rings[0]) {
+                            this.reality.rings[0].torque += realityTorque;
+                            Renderer.clickEffect(e.clientX, e.clientY, CONFIG.realityLayers[0].color);
+                            AudioSys.playTick(10);
+                        }
+                        return; // Don't process as inner ring click
+                    }
                 }
 
                 if(clickedLayer === -1 && dist < 100 * clickRadiusMult) clickedLayer = 0;
@@ -984,6 +1021,7 @@
                     // Hide Reality Button
                     document.getElementById('reality-btn').style.display = 'none';
                     document.getElementById('forge-open-btn').style.display = 'none';
+                    document.getElementById('profile-btn').style.display = 'block';
                     
                     document.getElementById('game-title').innerText = "REALITY ENGINE";
                     document.getElementById('game-title').style.color = "#ffd700";
@@ -1029,7 +1067,9 @@
 
             doPrestige() {
                 const totalVal = this.getTotalValue();
-                const pending = Math.floor(totalVal / 50000);
+                // Exponential Chronon calculation: log10 of value/50000, multiplied by 10
+                // This makes it much harder to get Chronons as values increase
+                const pending = Math.floor(Math.log10(Math.max(1, totalVal / 50000)) * 10);
                 
                 if(totalVal < 50000) return;
 
@@ -1087,6 +1127,58 @@
                     UI.updateShopUI();
                     UI.updatePrestigeUI();
                 }
+            },
+            toggleLayerAutoBuy(idx) {
+                if(!this.layerAutoBuy[idx]) {
+                    // Need to purchase first - scaling cost: each layer costs more
+                    const cost = Math.floor((idx + 1) * Math.pow(1.5, idx));
+                    if(this.chronons >= cost) {
+                        this.chronons -= cost;
+                        this.layerAutoBuy[idx] = true;
+                        UI.updateShopUI();
+                        UI.updatePrestigeUI();
+                        UI.buildAutoBuyMenu();
+                        UI.buildUpgrades();
+                    }
+                } else {
+                    // Just toggle off
+                    this.layerAutoBuy[idx] = false;
+                    UI.buildAutoBuyMenu();
+                    UI.buildUpgrades();
+                }
+            },
+            saveProfile(profileName) {
+                // Save current game state to a profile
+                this.profiles[profileName] = {
+                    resources: [...this.resources],
+                    rings: JSON.parse(JSON.stringify(this.rings)),
+                    reality: JSON.parse(JSON.stringify(this.reality)),
+                    dimension: this.dimension,
+                    unlockedLayers: this.unlockedLayers,
+                    chronons: this.chronons,
+                    infinityPoints: this.infinityPoints,
+                    artifacts: {...this.artifacts},
+                    layerAutoBuy: [...this.layerAutoBuy],
+                    floatersEnabled: [...this.floatersEnabled],
+                    selectedRPM: this.selectedRPM
+                };
+            },
+            loadProfile(profileName) {
+                if(!this.profiles[profileName]) return false;
+                const profile = this.profiles[profileName];
+                this.resources = [...profile.resources];
+                this.rings = JSON.parse(JSON.stringify(profile.rings));
+                this.reality = JSON.parse(JSON.stringify(profile.reality));
+                this.dimension = profile.dimension;
+                this.unlockedLayers = profile.unlockedLayers;
+                this.chronons = profile.chronons;
+                this.infinityPoints = profile.infinityPoints;
+                this.artifacts = {...profile.artifacts};
+                this.layerAutoBuy = [...profile.layerAutoBuy];
+                this.floatersEnabled = [...profile.floatersEnabled];
+                this.selectedRPM = profile.selectedRPM || 0;
+                this.currentProfile = profileName;
+                return true;
             },
             
             buyArtifact(item) {
@@ -1165,7 +1257,10 @@
                     blackHoleMass: this.blackHoleMass,
                     infUpgrades: this.infUpgrades,
                     reality: this.reality,
-                    artifacts: this.artifacts
+                    artifacts: this.artifacts,
+                    profiles: this.profiles,
+                    currentProfile: this.currentProfile,
+                    selectedRPM: this.selectedRPM
                 };
                 localStorage.setItem('chronoCyclesSave', JSON.stringify(saveData));
             },
@@ -1191,6 +1286,9 @@
                     if(data.artifacts !== undefined) this.artifacts = data.artifacts;
                     
                     if(!this.reality.upgrades) this.reality.upgrades = { speed: 0, value: 0 };
+                    if(!this.profiles) this.profiles = { main: null, challenges: {} };
+                    if(!this.currentProfile) this.currentProfile = 'main';
+                    if(!this.selectedRPM) this.selectedRPM = 0;
                     return true;
                 } catch(e) {
                     console.error('Failed to load save:', e);
@@ -2036,9 +2134,21 @@
                 const list = document.getElementById('rpm-list'); list.innerHTML = '';
                 for(let i=0; i<Game.unlockedLayers; i++) {
                     const l = CONFIG.layers[i]; const d = document.createElement('div'); d.className = 'rpm-item';
+                    d.style.cursor = 'pointer';
+                    d.onclick = () => { Game.selectedRPM = i; UI.updateRealtime(); };
                     let boost = Game.getSynergyBoost(i); let boostText = boost > 1.0 ? `<span class="rpm-boost">(+${((boost-1)*100).toFixed(0)}%)</span>` : '';
                     let trueRPM = Math.floor(Game.rings[i].velocity);
                     d.innerHTML = `<span>${l.name}</span> <span class="rpm-val" id="rpm-item-${i}">${Format(trueRPM)} ${boostText}</span>`; 
+                    list.appendChild(d);
+                }
+                // Add Reality ring RPM if in Reality mode
+                if(Game.dimension === 2 && Game.reality.rings[0]) {
+                    const d = document.createElement('div'); d.className = 'rpm-item';
+                    d.style.cursor = 'pointer';
+                    d.style.color = '#ffd700';
+                    d.onclick = () => { Game.selectedRPM = 10; UI.updateRealtime(); };
+                    let trueRPM = Math.floor(Game.reality.rings[0].velocity);
+                    d.innerHTML = `<span>Reality Ring</span> <span class="rpm-val" id="rpm-item-reality">${Format(trueRPM)}</span>`; 
                     list.appendChild(d);
                 }
             },
@@ -2080,7 +2190,9 @@
                 for(let i=0; i<Game.unlockedLayers; i++) {
                     const ocBtn = document.getElementById(`oc-btn-${i}`);
                     if(ocBtn) {
-                        if(Game.rings[i].upgrades.speed >= 10 && Game.rings[i].upgrades.value >= 10 && Game.rings[i].upgrades.auto >= 10) {
+                        // Purify requirement: 10 + (prestigeLevel * 5) for each upgrade
+                        const requiredLevel = 10 + (Game.rings[i].prestigeLevel * 5);
+                        if(Game.rings[i].upgrades.speed >= requiredLevel && Game.rings[i].upgrades.value >= requiredLevel && Game.rings[i].upgrades.auto >= requiredLevel) {
                             ocBtn.classList.add('visible');
                         } else {
                             ocBtn.classList.remove('visible');
@@ -2167,6 +2279,45 @@
                 if(Game.artifacts.anchor) { const b = document.getElementById('forge-btn-anchor'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
                 if(Game.artifacts.chart) { const b = document.getElementById('forge-btn-chart'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
             },
+            buildAutoBuyMenu() {
+                const list = document.getElementById('autobuy-list');
+                list.innerHTML = '';
+                
+                for(let i=0; i<Game.unlockedLayers; i++) {
+                    const l = CONFIG.layers[i];
+                    const item = document.createElement('div');
+                    item.className = 'shop-item';
+                    item.style.marginBottom = '8px';
+                    
+                    const isEnabled = Game.layerAutoBuy[i];
+                    const cost = Math.floor((i + 1) * Math.pow(1.5, i));
+                    
+                    item.innerHTML = `
+                        <div>
+                            <div style="color:${l.color}; font-weight:bold; font-size:0.9rem;">${l.name}</div>
+                            <div style="color:#666; font-size:0.7rem;">Layer ${i+1} Auto-Buy</div>
+                        </div>
+                    `;
+                    
+                    const btn = document.createElement('button');
+                    btn.className = `toggle-btn ${isEnabled ? 'active' : ''}`;
+                    if(isEnabled) {
+                        btn.innerText = 'ON';
+                        btn.onclick = () => { Game.toggleLayerAutoBuy(i); this.buildAutoBuyMenu(); };
+                    } else {
+                        if(Game.chronons >= cost) {
+                            btn.innerText = `ENABLE (${Format(cost)} Chronons)`;
+                            btn.onclick = () => { Game.toggleLayerAutoBuy(i); this.buildAutoBuyMenu(); UI.updatePrestigeUI(); };
+                        } else {
+                            btn.innerText = `LOCKED (${Format(cost)} Chronons)`;
+                            btn.disabled = true;
+                        }
+                    }
+                    
+                    item.appendChild(btn);
+                    list.appendChild(item);
+                }
+            },
             updateMainDisplay() {
                 if(Game.dimension === 1) {
                     document.getElementById('main-display-val').innerText = Format(Game.infinityPoints);
@@ -2184,7 +2335,15 @@
                 document.getElementById('main-display-name').style.color = l.color; 
             },
             updateRealtime() {
-                let trueRPM = Game.rings[0].velocity;
+                // Display selected RPM (not always ring 0)
+                let trueRPM = 0;
+                if(Game.selectedRPM === 10 && Game.dimension === 2 && Game.reality.rings[0]) {
+                    trueRPM = Game.reality.rings[0].velocity;
+                } else if(Game.selectedRPM < Game.unlockedLayers) {
+                    trueRPM = Game.rings[Game.selectedRPM].velocity;
+                } else {
+                    trueRPM = Game.rings[0].velocity;
+                }
                 document.getElementById('rpm-display').innerText = Format(trueRPM);
                 
                 for(let i=0; i<Game.unlockedLayers; i++) {
@@ -2193,6 +2352,24 @@
                         let boost = Game.getSynergyBoost(i);
                         let boostText = boost > 1.0 ? `<span class="rpm-boost">(+${((boost-1)*100).toFixed(0)}%)</span>` : '';
                         el.innerHTML = `${Format(Game.rings[i].velocity)} ${boostText}`;
+                        // Highlight selected RPM
+                        if(Game.selectedRPM === i) {
+                            el.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                        } else {
+                            el.style.backgroundColor = '';
+                        }
+                    }
+                }
+                // Update Reality ring RPM if in Reality mode
+                if(Game.dimension === 2) {
+                    const el = document.getElementById('rpm-item-reality');
+                    if(el && Game.reality.rings[0]) {
+                        el.innerHTML = `${Format(Game.reality.rings[0].velocity)}`;
+                        if(Game.selectedRPM === 10) {
+                            el.style.backgroundColor = 'rgba(255,215,0,0.2)';
+                        } else {
+                            el.style.backgroundColor = '';
+                        }
                     }
                 }
                 this.updateButtons(); this.updateMainDisplay(); this.updatePrestigeUI();
