@@ -75,7 +75,7 @@
             max-height: 80vh; overflow-y: auto;
         }
         
-        #shop-modal, #forge-modal {
+        #shop-modal, #forge-modal, #challenges-modal {
             top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 500px; right: auto;
         }
@@ -140,6 +140,27 @@
         .shop-btn:disabled, .forge-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
         .shop-btn.owned, .forge-btn.owned { background: #33ff33; color: black; pointer-events: none; border:none;}
         .forge-btn:hover:not(:disabled) { background: #bd00ff; box-shadow: 0 0 15px #bd00ff; }
+        
+        .challenge-item {
+            background: rgba(255,255,255,0.05); border: 1px solid #555; padding: 12px;
+            margin-bottom: 10px; border-left: 3px solid #ffd700;
+        }
+        .challenge-item.active { border-left-color: #00ff00; background: rgba(0,255,0,0.1); }
+        .challenge-item.completed { border-left-color: #888; opacity: 0.7; }
+        .challenge-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .challenge-name { color: #ffd700; font-weight: bold; font-size: 0.9rem; font-family: 'Orbitron'; }
+        .challenge-status { font-size: 0.7rem; color: #888; }
+        .challenge-desc { color: #aaa; font-size: 0.8rem; line-height: 1.4; margin-bottom: 8px; }
+        .challenge-reward { color: #00ff88; font-size: 0.75rem; margin-bottom: 8px; }
+        .challenge-btn {
+            background: linear-gradient(135deg, #ffd700, #ffaa00); border: 1px solid #ffd700; color: #000;
+            padding: 6px 12px; font-weight: bold; cursor: pointer; font-family: 'Orbitron'; font-size: 0.75rem;
+            transition: 0.3s; width: 100%;
+        }
+        .challenge-btn:hover:not(:disabled) { background: #ffd700; box-shadow: 0 0 15px #ffd700; }
+        .challenge-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
+        .challenge-btn.active { background: #ff4444; border-color: #ff0000; color: white; }
+        .challenge-btn.completed { background: #33ff33; border-color: #00ff00; color: black; }
 
         #event-banner {
             position: fixed; top: -150px; left: 50%; transform: translateX(-50%);
@@ -472,6 +493,7 @@
         <button class="toggle-btn" id="mute-ticks-btn" onclick="AudioSys.toggleTicks()">MUTE TICKS: OFF</button>
         <button class="toggle-btn active" id="floaters-btn" onclick="UI.toggleFloaters()">FLOATING TEXT: ON</button>
         <button class="toggle-btn active" id="auto-toggle-btn" onclick="Game.toggleAutoBuy()" style="display:none;">AUTO-BUY: ON</button>
+        <button class="toggle-btn" onclick="document.getElementById('autobuy-modal').classList.add('open'); UI.buildAutoBuyMenu()">⚙️ LAYER AUTO-BUY</button>
         <div style="border-top:1px solid #333; margin-top:15px; padding-top:15px;">
             <button class="toggle-btn" onclick="Game.newGame()" style="background:#aa3344;">🆕 NEW GAME</button>
         </div>
@@ -509,7 +531,9 @@
                     - <span style="color:#66ff66">Perpetual Motor</span>: Maintains speed automatically.<br>
                     - <span style="color:#4488ff">Kinetic Lubricant</span>: Reduces friction.<br>
                     - <span style="color:#ffaa00">Matter Compression</span>: Increases value per rotation.</p>
-                    <p>When you reach 50,000 Total Value, you can perform a <b>REWIND</b> (Prestige) to earn Chronons.</p>
+                    <p>When you reach 50,000 Total Value, you can perform a <b>REWIND</b> (Prestige) to earn Chronons. Chronon gain is exponential - each 10x increase in value gives more Chronons.</p>
+                    <p><b>Purify:</b> When all 3 upgrades reach level 10 (first time), you can Purify a layer for a +50% multiplier. Each subsequent Purify requires +5 more levels (15, 20, 25...).</p>
+                    <p><b>Auto-Buy:</b> In Settings, use "LAYER AUTO-BUY" to enable/disable automatic upgrades for each layer individually.</p>
                 </div>
             </div>
 
@@ -528,6 +552,10 @@
                     <p>The Ultimate Layer. Your entire previous universe becomes a tiny engine in the center.</p>
                     <p><b>The Mechanic:</b> The total RPM of your inner 10 rings is converted into <span class="manual-highlight">Reality Torque</span>.</p>
                     <p><b>Income:</b> You only gain Reality Shards when the massive Gold Ring completes a <span class="manual-highlight">Full Rotation</span>.</p>
+                    <p><b>Clicking:</b> You can click the Reality ring (the large gold ring) to add torque directly.</p>
+                    <p><b>RPM Display:</b> Click any ring name in the RPM list to select that layer's currency. The Reality ring RPM is also shown in the list.</p>
+                    <p><b>The Multiverse:</b> Access challenges that simulate alternative realities with unique rules. Completing challenges grants <span class="manual-highlight">Universal Constants</span> - permanent multipliers.</p>
+                    <p><b>Profiles:</b> When you activate a challenge, your current state is saved as a profile. Use the Profile button (👤) in the top-right to switch between your main game and challenge profiles.</p>
                     <p><b>Strategy:</b> You must switch back and forth between the Microcosm (Inner) and Reality to optimize power.</p>
                 </div>
             </div>
@@ -594,6 +622,34 @@
         <button class="toggle-btn" onclick="document.getElementById('forge-modal').classList.remove('open')">CLOSE</button>
     </div>
 
+    <div id="challenges-modal" class="modal">
+        <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px; color:#ffd700;">THE MULTIVERSE</div>
+        <div style="text-align:center; color:#fff; font-family:'Orbitron'; font-size:0.8rem; margin-bottom:10px;">Simulate Alternative Realities</div>
+        
+        <div id="challenges-list"></div>
+        
+        <div style="border-top:1px solid #444; margin:15px 0; padding-top:15px;">
+            <div style="color:#ffd700; font-weight:bold; text-align:center; margin-bottom:10px;">UNIVERSAL CONSTANTS</div>
+            <div id="constants-display" style="color:#aaa; font-size:0.8rem; line-height:1.8;"></div>
+        </div>
+
+        <button class="toggle-btn" onclick="document.getElementById('challenges-modal').classList.remove('open')">CLOSE</button>
+    </div>
+
+    <div id="profile-modal" class="modal">
+        <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px;">PROFILES</div>
+        <div style="text-align:center; color:#aaa; font-size:0.8rem; margin-bottom:10px;">Switch between game states</div>
+        <div id="profile-list"></div>
+        <button class="toggle-btn" onclick="document.getElementById('profile-modal').classList.remove('open')">CLOSE</button>
+    </div>
+
+    <div id="autobuy-modal" class="modal">
+        <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px;">LAYER AUTO-BUY</div>
+        <div style="text-align:center; color:#aaa; font-size:0.8rem; margin-bottom:10px;">Enable/Disable auto-buy per layer</div>
+        <div id="autobuy-list"></div>
+        <button class="toggle-btn" onclick="document.getElementById('autobuy-modal').classList.remove('open')">CLOSE</button>
+    </div>
+
     <canvas id="game-canvas"></canvas>
 
     <div id="lore-box">
@@ -648,6 +704,10 @@
                 
                 <button class="forge-open-btn" id="forge-open-btn" onclick="document.getElementById('forge-modal').classList.add('open'); UI.updateForgeUI()">
                     ⚒️ OPEN INFINITY FORGE
+                </button>
+                
+                <button class="forge-open-btn" id="challenges-open-btn" onclick="document.getElementById('challenges-modal').classList.add('open'); UI.buildChallenges()" style="display:none; background:linear-gradient(135deg, #ffd700, #ffaa00); border-color:#ffd700; color:#000;">
+                    🌌 THE MULTIVERSE
                 </button>
             </div>
             <div class="scroll-area" id="upgrades"></div>
@@ -705,6 +765,84 @@
             ],
             realityLayers: [
                 { name: "Reality", currency: "Reality Shards", icon: "👁️", color: "#ffd700", lore: "The Universe is merely fuel for the machine." }
+            ],
+            challenges: [
+                {
+                    id: 'frictionless',
+                    name: 'The Frictionless Void',
+                    desc: 'Friction is 0, but Torque is capped at 1. Can you reach Infinity?',
+                    reward: 'Torque Multiplier +25%',
+                    rewardType: 'torqueMultiplier',
+                    rewardValue: 0.25,
+                    condition: (game) => {
+                        // Check if any ring reaches 1e6 RPM (Infinity threshold)
+                        return game.rings.some(r => r.velocity >= 1e6);
+                    },
+                    modifyPhysics: (game, dt) => {
+                        // Set friction to 0
+                        game._challengeFriction = 0;
+                        // Cap torque at 1
+                        game.rings.forEach(r => {
+                            if(r.torque > 1) r.torque = 1;
+                        });
+                    }
+                },
+                {
+                    id: 'entropy',
+                    name: 'Entropy Only',
+                    desc: 'Only the first ring works. The other 9 are broken.',
+                    reward: 'Shard Multiplier +30%',
+                    rewardType: 'shardMultiplier',
+                    rewardValue: 0.30,
+                    condition: (game) => {
+                        // Check if first ring reaches 100,000 RPM
+                        return game.rings[0] && game.rings[0].velocity >= 100000;
+                    },
+                    modifyPhysics: (game, dt) => {
+                        // Disable rings 1-9
+                        for(let i = 1; i < 10; i++) {
+                            if(game.rings[i]) {
+                                game.rings[i].torque = 0;
+                                game.rings[i].velocity = 0;
+                            }
+                        }
+                    }
+                },
+                {
+                    id: 'reverse',
+                    name: 'Reverse Polarity',
+                    desc: 'All rings spin backwards. Must reach -10,000 RPM on first ring.',
+                    reward: 'Speed Boost +20%',
+                    rewardType: 'speedBoost',
+                    rewardValue: 0.20,
+                    condition: (game) => {
+                        // Check if first ring reaches -10,000 RPM
+                        return game.rings[0] && game.rings[0].velocity <= -10000;
+                    },
+                    modifyPhysics: (game, dt) => {
+                        // Force all rings to have negative velocity
+                        game.rings.forEach(r => {
+                            if(r.velocity > 0) r.velocity = -r.velocity;
+                            r.torque = -Math.abs(r.torque);
+                        });
+                    }
+                },
+                {
+                    id: 'minimal',
+                    name: 'Minimal Torque',
+                    desc: 'Click torque is reduced by 90%. Only upgrades can save you.',
+                    reward: 'Friction Reduction +15%',
+                    rewardType: 'frictionReduction',
+                    rewardValue: 0.15,
+                    condition: (game) => {
+                        // Check if any ring reaches 50,000 RPM despite the handicap
+                        return game.rings.some(r => r.velocity >= 50000);
+                    },
+                    modifyPhysics: (game, dt) => {
+                        // Reduce click torque (handled in addTorque)
+                        game._challengeClickTorque = 0.1;
+                    }
+                }
             ],
             baseRadius: 60,
             spacing: 35,
@@ -801,8 +939,21 @@
             reality: {
                 shards: 0,
                 rings: [], 
-                upgrades: { speed: 0, value: 0 }
+                upgrades: { speed: 0, value: 0 },
+                activeChallenge: null,
+                completedChallenges: [],
+                universalConstants: {
+                    torqueMultiplier: 1.0,
+                    shardMultiplier: 1.0,
+                    frictionReduction: 0.0,
+                    speedBoost: 1.0
+                }
             },
+            profiles: {
+                main: null,
+                challenges: {}
+            },
+            currentProfile: 'main',
             artifacts: { prism: false, anchor: false, chart: false },
             
             settings: { floaters: true },
@@ -829,6 +980,8 @@
             init() {
                 this.resetRings(); 
                 this.initRealityRings();
+                if(!this.profiles) this.profiles = { main: null, challenges: {} };
+                if(!this.currentProfile) this.currentProfile = 'main';
                 this.load(); 
                 this.validateState();
                 UI.init(); Renderer.init();
@@ -883,7 +1036,18 @@
                 }
 
                 if(this.dimension === 2 && clickedLayer === -1) {
-                    // Reality ring click logic (future expansion)
+                    // Reality ring click detection
+                    const realityRadius = (CONFIG.baseRadius + 90); // Same as drawRealityRings
+                    if(Math.abs(dist - realityRadius) < 25) {
+                        // Clicked on Reality ring - add torque (reduced amount)
+                        const realityTorque = CONFIG.clickTorque * 0.3; // 30% of normal click torque
+                        if(this.reality.rings[0]) {
+                            this.reality.rings[0].torque += realityTorque;
+                            Renderer.clickEffect(e.clientX, e.clientY, CONFIG.realityLayers[0].color);
+                            AudioSys.playTick(10);
+                        }
+                        return; // Don't process as inner ring click
+                    }
                 }
 
                 if(clickedLayer === -1 && dist < 100 * clickRadiusMult) clickedLayer = 0;
@@ -939,6 +1103,16 @@
                     angle: 0, velocity: 0, torque: 0
                 }];
                 if(!this.reality.upgrades) this.reality.upgrades = { speed: 0, value: 0 };
+                if(!this.reality.activeChallenge) this.reality.activeChallenge = null;
+                if(!this.reality.completedChallenges) this.reality.completedChallenges = [];
+                if(!this.reality.universalConstants) {
+                    this.reality.universalConstants = {
+                        torqueMultiplier: 1.0,
+                        shardMultiplier: 1.0,
+                        frictionReduction: 0.0,
+                        speedBoost: 1.0
+                    };
+                }
             },
 
             warpToInfinity() {
@@ -984,6 +1158,8 @@
                     // Hide Reality Button
                     document.getElementById('reality-btn').style.display = 'none';
                     document.getElementById('forge-open-btn').style.display = 'none';
+                    document.getElementById('challenges-open-btn').style.display = 'block';
+                    document.getElementById('profile-btn').style.display = 'block';
                     
                     document.getElementById('game-title').innerText = "REALITY ENGINE";
                     document.getElementById('game-title').style.color = "#ffd700";
@@ -1010,6 +1186,8 @@
                     document.getElementById('circle-ui-group').style.display = 'block';
                     document.querySelector('.currency-select').style.pointerEvents = "auto";
                     document.getElementById('forge-open-btn').style.display = 'none';
+                    document.getElementById('challenges-open-btn').style.display = 'none';
+                    document.getElementById('profile-btn').style.display = 'none';
                     document.getElementById('game-title').innerText = "CHRONO ENGINE";
                     document.getElementById('game-title').style.color = "#fff";
                     
@@ -1029,7 +1207,8 @@
 
             doPrestige() {
                 const totalVal = this.getTotalValue();
-                const pending = Math.floor(totalVal / 50000);
+                // Exponential Chronon calculation: base 50000, exponential growth
+                const pending = Math.floor(Math.log10(Math.max(1, totalVal / 50000)) * 3.14159);
                 
                 if(totalVal < 50000) return;
 
@@ -1117,6 +1296,99 @@
                 }
             },
 
+            saveProfile(profileName) {
+                // Save current game state to a profile
+                this.profiles[profileName] = {
+                    resources: [...this.resources],
+                    rings: JSON.parse(JSON.stringify(this.rings)),
+                    reality: JSON.parse(JSON.stringify(this.reality)),
+                    dimension: this.dimension,
+                    unlockedLayers: this.unlockedLayers,
+                    chronons: this.chronons,
+                    infinityPoints: this.infinityPoints,
+                    artifacts: {...this.artifacts},
+                    layerAutoBuy: [...this.layerAutoBuy],
+                    floatersEnabled: [...this.floatersEnabled]
+                };
+            },
+            loadProfile(profileName) {
+                if(!this.profiles[profileName]) return false;
+                const profile = this.profiles[profileName];
+                this.resources = [...profile.resources];
+                this.rings = JSON.parse(JSON.stringify(profile.rings));
+                this.reality = JSON.parse(JSON.stringify(profile.reality));
+                this.dimension = profile.dimension;
+                this.unlockedLayers = profile.unlockedLayers;
+                this.chronons = profile.chronons;
+                this.infinityPoints = profile.infinityPoints;
+                this.artifacts = {...profile.artifacts};
+                this.layerAutoBuy = [...profile.layerAutoBuy];
+                this.floatersEnabled = [...profile.floatersEnabled];
+                this.currentProfile = profileName;
+                return true;
+            },
+            activateChallenge(challengeId) {
+                if(this.dimension !== 2) return;
+                if(this.reality.activeChallenge === challengeId) {
+                    // Deactivate - return to main profile
+                    this.loadProfile('main');
+                    this.reality.activeChallenge = null;
+                    UI.setLore("Challenge deactivated. Reality restored.");
+                } else {
+                    // Save current state to main profile if not already saved
+                    if(!this.profiles.main || this.currentProfile !== 'main') {
+                        this.saveProfile('main');
+                    }
+                    
+                    // Create challenge profile
+                    const challenge = CONFIG.challenges.find(c => c.id === challengeId);
+                    if(challenge) {
+                        // Save current state as challenge profile
+                        this.saveProfile(`challenge_${challengeId}`);
+                        
+                        // Activate challenge
+                        this.reality.activeChallenge = challengeId;
+                        this.currentProfile = `challenge_${challengeId}`;
+                        
+                        UI.setLore(`CHALLENGE ACTIVE: ${challenge.name}`);
+                        Achievements.show("CHALLENGE STARTED", challenge.name, "#ffd700");
+                    }
+                }
+                UI.buildChallenges();
+                UI.buildProfileMenu();
+            },
+
+            checkChallengeCompletion() {
+                if(this.dimension !== 2 || !this.reality.activeChallenge) return;
+                
+                const challenge = CONFIG.challenges.find(c => c.id === this.reality.activeChallenge);
+                if(!challenge) return;
+
+                if(challenge.condition(this)) {
+                    // Complete challenge
+                    if(!this.reality.completedChallenges.includes(challenge.id)) {
+                        this.reality.completedChallenges.push(challenge.id);
+                        
+                        // Apply reward
+                        const constants = this.reality.universalConstants;
+                        if(challenge.rewardType === 'torqueMultiplier') {
+                            constants.torqueMultiplier += challenge.rewardValue;
+                        } else if(challenge.rewardType === 'shardMultiplier') {
+                            constants.shardMultiplier += challenge.rewardValue;
+                        } else if(challenge.rewardType === 'frictionReduction') {
+                            constants.frictionReduction += challenge.rewardValue;
+                        } else if(challenge.rewardType === 'speedBoost') {
+                            constants.speedBoost += challenge.rewardValue;
+                        }
+                        
+                        this.reality.activeChallenge = null;
+                        Achievements.show("CHALLENGE COMPLETE", `Earned: ${challenge.reward}`, "#00ff88");
+                        UI.setLore(`Universal Constant acquired: ${challenge.reward}`);
+                        UI.buildChallenges();
+                    }
+                }
+            },
+
             runAutoBuy() {
                 if(!this.autoBuyEnabled || this.dimension === 1) return;
                 for(let i = 0; i < this.unlockedLayers; i++) {
@@ -1145,10 +1417,39 @@
                 this.floatersEnabled[idx] = !this.floatersEnabled[idx];
                 UI.buildUpgrades(); 
             },
+            toggleLayerAutoBuy(idx) {
+                if(!this.layerAutoBuy[idx]) {
+                    // Need to purchase first
+                    const cost = idx + 1;
+                    if(this.chronons >= cost) {
+                        this.chronons -= cost;
+                        this.layerAutoBuy[idx] = true;
+                        UI.updateShopUI();
+                        UI.updatePrestigeUI();
+                        UI.buildUpgrades();
+                    }
+                } else {
+                    // Just toggle off
+                    this.layerAutoBuy[idx] = false;
+                    UI.buildUpgrades();
+                }
+            },
 
             save() {
                 // DO NOT SAVE IF WE ARE IN THE PROCESS OF WIPING
                 if(this._isResetting) return;
+                
+                // Ensure challenge data is initialized
+                if(!this.reality.activeChallenge) this.reality.activeChallenge = null;
+                if(!this.reality.completedChallenges) this.reality.completedChallenges = [];
+                if(!this.reality.universalConstants) {
+                    this.reality.universalConstants = {
+                        torqueMultiplier: 1.0,
+                        shardMultiplier: 1.0,
+                        frictionReduction: 0.0,
+                        speedBoost: 1.0
+                    };
+                }
                 
                 const saveData = {
                     version: 8.3,
@@ -1165,7 +1466,9 @@
                     blackHoleMass: this.blackHoleMass,
                     infUpgrades: this.infUpgrades,
                     reality: this.reality,
-                    artifacts: this.artifacts
+                    artifacts: this.artifacts,
+                    profiles: this.profiles,
+                    currentProfile: this.currentProfile
                 };
                 localStorage.setItem('chronoCyclesSave', JSON.stringify(saveData));
             },
@@ -1189,8 +1492,22 @@
                     if(data.infUpgrades !== undefined) this.infUpgrades = data.infUpgrades;
                     if(data.reality !== undefined) this.reality = data.reality;
                     if(data.artifacts !== undefined) this.artifacts = data.artifacts;
+                    if(data.profiles !== undefined) this.profiles = data.profiles;
+                    if(data.currentProfile !== undefined) this.currentProfile = data.currentProfile;
                     
                     if(!this.reality.upgrades) this.reality.upgrades = { speed: 0, value: 0 };
+                    if(!this.profiles) this.profiles = { main: null, challenges: {} };
+                    if(!this.currentProfile) this.currentProfile = 'main';
+                    if(!this.reality.activeChallenge) this.reality.activeChallenge = null;
+                    if(!this.reality.completedChallenges) this.reality.completedChallenges = [];
+                    if(!this.reality.universalConstants) {
+                        this.reality.universalConstants = {
+                            torqueMultiplier: 1.0,
+                            shardMultiplier: 1.0,
+                            frictionReduction: 0.0,
+                            speedBoost: 1.0
+                        };
+                    }
                     return true;
                 } catch(e) {
                     console.error('Failed to load save:', e);
@@ -1201,6 +1518,10 @@
 
             addTorque(idx, amount) {
                 if(isNaN(this.rings[idx].torque)) this.rings[idx].torque = 0;
+                // Apply challenge click torque reduction
+                if(this._challengeClickTorque !== undefined) {
+                    amount *= this._challengeClickTorque;
+                }
                 this.rings[idx].torque += amount;
                 if(this.rings[idx].torque > CONFIG.maxTorque) this.rings[idx].torque = CONFIG.maxTorque;
             },
@@ -1353,13 +1674,28 @@
                         }
                     }
 
+                    // Apply challenge physics modifications
+                    this._challengeFriction = undefined;
+                    this._challengeClickTorque = undefined;
+                    if(this.dimension === 2 && this.reality.activeChallenge) {
+                        const challenge = CONFIG.challenges.find(c => c.id === this.reality.activeChallenge);
+                        if(challenge && challenge.modifyPhysics) {
+                            challenge.modifyPhysics(this, dt);
+                        }
+                    }
+
                     // PHYSICS LOOP (INNER)
                     let totalInnerRPM = 0;
                     this.rings.forEach((ring, i) => {
                         if (i >= this.unlockedLayers) return;
                         
                         let minTorque = ring.upgrades.auto * 25; 
-                        let fric = CONFIG.friction * (this.eventFriction !== undefined ? this.eventFriction : 1);
+                        let baseFric = (this._challengeFriction !== undefined ? this._challengeFriction : CONFIG.friction);
+                        // Apply Universal Constants friction reduction
+                        if(this.dimension === 2 && this.reality.universalConstants) {
+                            baseFric *= (1 - this.reality.universalConstants.frictionReduction);
+                        }
+                        let fric = baseFric * (this.eventFriction !== undefined ? this.eventFriction : 1);
 
                         if (ring.torque > minTorque) {
                             ring.torque -= fric * dt * (1 + ring.torque * 0.02);
@@ -1370,6 +1706,10 @@
                         if(ring.torque < 0) ring.torque = 0;
 
                         let mult = this.getLayerMult(i);
+                        // Apply Universal Constants speed boost
+                        if(this.dimension === 2 && this.reality.universalConstants) {
+                            mult *= this.reality.universalConstants.speedBoost;
+                        }
                         let targetVelocity = ring.torque * mult;
 
                         ring.velocity += (targetVelocity - ring.velocity) * 5 * dt;
@@ -1408,11 +1748,19 @@
 
                     // PHYSICS LOOP (REALITY)
                     if(this.dimension === 2) {
+                        // Check challenge completion
+                        this.checkChallengeCompletion();
+                        
                         let realityTorque = Math.log10(Math.max(1, totalInnerRPM));
                         if (this.artifacts.prism) realityTorque *= 1.1; // +10%
                         
                         // Upgrades
                         realityTorque *= (1 + this.reality.upgrades.speed * 0.2); // Speed upgrade
+                        
+                        // Apply Universal Constants
+                        const constants = this.reality.universalConstants;
+                        realityTorque *= constants.torqueMultiplier;
+                        realityTorque *= constants.speedBoost;
 
                         const rRing = this.reality.rings[0];
                         rRing.torque = realityTorque;
@@ -1425,6 +1773,7 @@
                         if(rRing.angle >= Math.PI * 2) {
                             rRing.angle %= (Math.PI * 2);
                             let baseVal = 1 * (1 + this.reality.upgrades.value * 0.5);
+                            baseVal *= constants.shardMultiplier; // Apply shard multiplier
                             this.reality.shards += baseVal;
                             
                             UI.spawnText(`+${Format(baseVal)} RS`, 10, true); // Gold text
@@ -2036,9 +2385,21 @@
                 const list = document.getElementById('rpm-list'); list.innerHTML = '';
                 for(let i=0; i<Game.unlockedLayers; i++) {
                     const l = CONFIG.layers[i]; const d = document.createElement('div'); d.className = 'rpm-item';
+                    d.style.cursor = 'pointer';
+                    d.onclick = () => { Game.selectedRes = i; UI.selectCurr(i); };
                     let boost = Game.getSynergyBoost(i); let boostText = boost > 1.0 ? `<span class="rpm-boost">(+${((boost-1)*100).toFixed(0)}%)</span>` : '';
                     let trueRPM = Math.floor(Game.rings[i].velocity);
                     d.innerHTML = `<span>${l.name}</span> <span class="rpm-val" id="rpm-item-${i}">${Format(trueRPM)} ${boostText}</span>`; 
+                    list.appendChild(d);
+                }
+                // Add Reality ring RPM if in Reality mode
+                if(Game.dimension === 2 && Game.reality.rings[0]) {
+                    const d = document.createElement('div'); d.className = 'rpm-item';
+                    d.style.cursor = 'pointer';
+                    d.style.color = '#ffd700';
+                    d.onclick = () => { Game.selectedRes = 10; UI.selectCurr(10); };
+                    let trueRPM = Math.floor(Game.reality.rings[0].velocity);
+                    d.innerHTML = `<span>Reality Ring</span> <span class="rpm-val" id="rpm-item-reality">${Format(trueRPM)}</span>`; 
                     list.appendChild(d);
                 }
             },
@@ -2080,7 +2441,9 @@
                 for(let i=0; i<Game.unlockedLayers; i++) {
                     const ocBtn = document.getElementById(`oc-btn-${i}`);
                     if(ocBtn) {
-                        if(Game.rings[i].upgrades.speed >= 10 && Game.rings[i].upgrades.value >= 10 && Game.rings[i].upgrades.auto >= 10) {
+                        // Purify requirement: 10 + (prestigeLevel * 5) for each upgrade
+                        const requiredLevel = 10 + (Game.rings[i].prestigeLevel * 5);
+                        if(Game.rings[i].upgrades.speed >= requiredLevel && Game.rings[i].upgrades.value >= requiredLevel && Game.rings[i].upgrades.auto >= requiredLevel) {
                             ocBtn.classList.add('visible');
                         } else {
                             ocBtn.classList.remove('visible');
@@ -2162,10 +2525,171 @@
                     container.appendChild(item);
                 }
             },
+            buildAutoBuyMenu() {
+                const list = document.getElementById('autobuy-list');
+                list.innerHTML = '';
+                
+                for(let i=0; i<Game.unlockedLayers; i++) {
+                    const l = CONFIG.layers[i];
+                    const item = document.createElement('div');
+                    item.className = 'shop-item';
+                    item.style.marginBottom = '8px';
+                    
+                    const isEnabled = Game.layerAutoBuy[i];
+                    const cost = i + 1;
+                    
+                    item.innerHTML = `
+                        <div>
+                            <div style="color:${l.color}; font-weight:bold; font-size:0.9rem;">${l.name}</div>
+                            <div style="color:#666; font-size:0.7rem;">Layer ${i+1} Auto-Buy</div>
+                        </div>
+                    `;
+                    
+                    const btn = document.createElement('button');
+                    btn.className = `toggle-btn ${isEnabled ? 'active' : ''}`;
+                    if(isEnabled) {
+                        btn.innerText = 'ON';
+                        btn.onclick = () => { Game.toggleLayerAutoBuy(i); this.buildAutoBuyMenu(); };
+                    } else {
+                        if(Game.chronons >= cost) {
+                            btn.innerText = `ENABLE (${cost} Chronons)`;
+                            btn.onclick = () => { Game.toggleLayerAutoBuy(i); this.buildAutoBuyMenu(); UI.updatePrestigeUI(); };
+                        } else {
+                            btn.innerText = `LOCKED (${cost} Chronons)`;
+                            btn.disabled = true;
+                        }
+                    }
+                    
+                    item.appendChild(btn);
+                    list.appendChild(item);
+                }
+            },
             updateForgeUI() {
                 if(Game.artifacts.prism) { const b = document.getElementById('forge-btn-prism'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
                 if(Game.artifacts.anchor) { const b = document.getElementById('forge-btn-anchor'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
                 if(Game.artifacts.chart) { const b = document.getElementById('forge-btn-chart'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
+            },
+            buildProfileMenu() {
+                const list = document.getElementById('profile-list');
+                list.innerHTML = '';
+                
+                // Main profile
+                const mainItem = document.createElement('div');
+                mainItem.className = 'shop-item';
+                mainItem.style.marginBottom = '8px';
+                const isActive = Game.currentProfile === 'main';
+                mainItem.innerHTML = `
+                    <div>
+                        <div style="color:${isActive ? '#00ff00' : '#fff'}; font-weight:bold; font-size:0.9rem;">Main Profile</div>
+                        <div style="color:#666; font-size:0.7rem;">Your primary game state</div>
+                    </div>
+                `;
+                const mainBtn = document.createElement('button');
+                mainBtn.className = `toggle-btn ${isActive ? 'active' : ''}`;
+                mainBtn.innerText = isActive ? 'CURRENT' : 'SWITCH';
+                mainBtn.onclick = () => {
+                    if(!isActive) {
+                        Game.saveProfile(Game.currentProfile);
+                        Game.loadProfile('main');
+                        UI.buildUpgrades();
+                        UI.updateRPMList();
+                        UI.updateCurrList();
+                        UI.updateMainDisplay();
+                        this.buildProfileMenu();
+                    }
+                };
+                mainItem.appendChild(mainBtn);
+                list.appendChild(mainItem);
+                
+                // Challenge profiles
+                Object.keys(Game.profiles).forEach(profileName => {
+                    if(profileName.startsWith('challenge_')) {
+                        const challengeId = profileName.replace('challenge_', '');
+                        const challenge = CONFIG.challenges.find(c => c.id === challengeId);
+                        if(challenge) {
+                            const item = document.createElement('div');
+                            item.className = 'shop-item';
+                            item.style.marginBottom = '8px';
+                            const isActiveProfile = Game.currentProfile === profileName;
+                            item.innerHTML = `
+                                <div>
+                                    <div style="color:${isActiveProfile ? '#ffd700' : '#aaa'}; font-weight:bold; font-size:0.9rem;">${challenge.name}</div>
+                                    <div style="color:#666; font-size:0.7rem;">Challenge profile</div>
+                                </div>
+                            `;
+                            const btn = document.createElement('button');
+                            btn.className = `toggle-btn ${isActiveProfile ? 'active' : ''}`;
+                            btn.innerText = isActiveProfile ? 'CURRENT' : 'SWITCH';
+                            btn.onclick = () => {
+                                if(!isActiveProfile) {
+                                    Game.saveProfile(Game.currentProfile);
+                                    Game.loadProfile(profileName);
+                                    UI.buildUpgrades();
+                                    UI.updateRPMList();
+                                    UI.updateCurrList();
+                                    UI.updateMainDisplay();
+                                    this.buildProfileMenu();
+                                }
+                            };
+                            item.appendChild(btn);
+                            list.appendChild(item);
+                        }
+                    }
+                });
+            },
+            buildChallenges() {
+                const list = document.getElementById('challenges-list');
+                const constantsDisplay = document.getElementById('constants-display');
+                list.innerHTML = '';
+                
+                if(!CONFIG.challenges) return;
+                
+                CONFIG.challenges.forEach(challenge => {
+                    const item = document.createElement('div');
+                    item.className = 'challenge-item';
+                    
+                    const isActive = Game.reality.activeChallenge === challenge.id;
+                    const isCompleted = Game.reality.completedChallenges.includes(challenge.id);
+                    
+                    if(isActive) item.classList.add('active');
+                    if(isCompleted) item.classList.add('completed');
+                    
+                    const status = isCompleted ? '✓ COMPLETED' : (isActive ? '● ACTIVE' : '');
+                    
+                    item.innerHTML = `
+                        <div class="challenge-header">
+                            <div class="challenge-name">${challenge.name}</div>
+                            <div class="challenge-status">${status}</div>
+                        </div>
+                        <div class="challenge-desc">${challenge.desc}</div>
+                        <div class="challenge-reward">Reward: ${challenge.reward}</div>
+                    `;
+                    
+                    const btn = document.createElement('button');
+                    btn.className = 'challenge-btn';
+                    if(isCompleted) {
+                        btn.innerText = 'COMPLETED';
+                        btn.disabled = true;
+                        btn.classList.add('completed');
+                    } else if(isActive) {
+                        btn.innerText = 'DEACTIVATE';
+                        btn.classList.add('active');
+                    } else {
+                        btn.innerText = 'ACTIVATE';
+                    }
+                    btn.onclick = () => Game.activateChallenge(challenge.id);
+                    item.appendChild(btn);
+                    list.appendChild(item);
+                });
+                
+                // Update Universal Constants display
+                const constants = Game.reality.universalConstants;
+                constantsDisplay.innerHTML = `
+                    <div>Torque Multiplier: <span style="color:#ffd700">${((constants.torqueMultiplier - 1) * 100).toFixed(0)}%</span></div>
+                    <div>Shard Multiplier: <span style="color:#ffd700">${((constants.shardMultiplier - 1) * 100).toFixed(0)}%</span></div>
+                    <div>Friction Reduction: <span style="color:#ffd700">${(constants.frictionReduction * 100).toFixed(0)}%</span></div>
+                    <div>Speed Boost: <span style="color:#ffd700">${((constants.speedBoost - 1) * 100).toFixed(0)}%</span></div>
+                `;
             },
             updateMainDisplay() {
                 if(Game.dimension === 1) {
@@ -2193,6 +2717,13 @@
                         let boost = Game.getSynergyBoost(i);
                         let boostText = boost > 1.0 ? `<span class="rpm-boost">(+${((boost-1)*100).toFixed(0)}%)</span>` : '';
                         el.innerHTML = `${Format(Game.rings[i].velocity)} ${boostText}`;
+                    }
+                }
+                // Update Reality ring RPM if in Reality mode
+                if(Game.dimension === 2) {
+                    const el = document.getElementById('rpm-item-reality');
+                    if(el && Game.reality.rings[0]) {
+                        el.innerHTML = `${Format(Game.reality.rings[0].velocity)}`;
                     }
                 }
                 this.updateButtons(); this.updateMainDisplay(); this.updatePrestigeUI();
