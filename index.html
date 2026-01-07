@@ -1938,10 +1938,11 @@
                 window.addEventListener('resize', () => this.resize());
                 this.resize();
                 // Init Stars - More stars for beautiful background, with glow and flicker properties
-                for(let i=0; i<300; i++) {
+                // Expanded to 100x larger area for zooming out - need more stars to fill the space!
+                for(let i=0; i<2000; i++) {
                     this.stars.push({
-                        x: (Math.random() - 0.5) * 2000, // World space coordinates
-                        y: (Math.random() - 0.5) * 2000,
+                        x: (Math.random() - 0.5) * 200000, // World space coordinates - 100x larger!
+                        y: (Math.random() - 0.5) * 200000,
                         s: Math.random() * 3 + 0.5, // Size
                         glow: Math.random() * 0.5 + 0.5, // Glow intensity
                         flicker: Math.random() * Math.PI * 2, // Flicker phase
@@ -2061,7 +2062,7 @@
                                 if(drawn > drawLimit) break;
                                 let s1 = this.stars[i]; let s2 = this.stars[j];
                                 let d = Math.sqrt(Math.pow(s1.x-s2.x, 2) + Math.pow(s1.y-s2.y, 2));
-                                if(d < 300) { // Adjusted for world space
+                                if(d < 30000) { // Adjusted for expanded world space (100x)
                                     this.ctx.moveTo(s1.x, s1.y);
                                     this.ctx.lineTo(s2.x, s2.y);
                                     drawn++;
