@@ -2075,21 +2075,37 @@
                     if(Game.artifacts.chart) pct = Math.min(1.0, Game.infinityPoints / 5000);
                     
                     if(pct > 0) {
-                         const totalLinks = (this.stars.length * (this.stars.length - 1)) / 2; 
-                         const drawLimit = Math.floor(totalLinks * 0.05 * pct); 
-                         
-                         let drawn = 0;
-                         for(let i=0; i<this.stars.length; i++) {
-                            for(let j=i+1; j<this.stars.length; j++) {
-                                if(drawn > drawLimit) break;
-                                let s1 = this.stars[i]; let s2 = this.stars[j];
+                        // Only check stars visible on screen for constellations
+                        const viewWidth = this.canvas.width / this.zoom;
+                        const viewHeight = this.canvas.height / this.zoom;
+                        const viewLeft = -this.cameraX / this.zoom - viewWidth / 2;
+                        const viewRight = -this.cameraX / this.zoom + viewWidth / 2;
+                        const viewTop = -this.cameraY / this.zoom - viewHeight / 2;
+                        const viewBottom = -this.cameraY / this.zoom + viewHeight / 2;
+                        
+                        // Get visible stars only
+                        const visibleStars = this.stars.filter(s => 
+                            s.x >= viewLeft && s.x <= viewRight && 
+                            s.y >= viewTop && s.y <= viewBottom
+                        );
+                        
+                        // Limit to maximum constellation lines (much smaller number)
+                        const maxLines = Math.min(50, Math.floor(visibleStars.length * 0.1 * pct));
+                        const maxDistance = 5000; // Reduced distance for constellations
+                        
+                        let drawn = 0;
+                        for(let i=0; i<visibleStars.length && drawn < maxLines; i++) {
+                            for(let j=i+1; j<visibleStars.length && drawn < maxLines; j++) {
+                                let s1 = visibleStars[i]; let s2 = visibleStars[j];
                                 let d = Math.sqrt(Math.pow(s1.x-s2.x, 2) + Math.pow(s1.y-s2.y, 2));
-                                if(d < 30000) { // Adjusted for expanded world space (100x)
+                                if(d < maxDistance) {
                                     this.ctx.moveTo(s1.x, s1.y);
                                     this.ctx.lineTo(s2.x, s2.y);
                                     drawn++;
+                                    if(drawn >= maxLines) break;
                                 }
                             }
+                            if(drawn >= maxLines) break;
                         }
                         this.ctx.stroke();
                     }
