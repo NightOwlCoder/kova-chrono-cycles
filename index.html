@@ -2017,8 +2017,30 @@
                 this.ctx.scale(this.zoom, this.zoom);
                 
                 // BEAUTIFUL STARRY BACKGROUND - Always visible, moves with camera
+                // Only draw stars visible on screen (frustum culling for performance)
                 const time = performance.now() * 0.001; // Time for flickering
+                
+                // Calculate visible bounds based on camera and zoom
+                const viewWidth = this.canvas.width / this.zoom;
+                const viewHeight = this.canvas.height / this.zoom;
+                const viewLeft = -this.cameraX / this.zoom - viewWidth / 2;
+                const viewRight = -this.cameraX / this.zoom + viewWidth / 2;
+                const viewTop = -this.cameraY / this.zoom - viewHeight / 2;
+                const viewBottom = -this.cameraY / this.zoom + viewHeight / 2;
+                
+                // Add padding for stars that might be partially visible (glow effect)
+                const padding = 100;
+                const visibleLeft = viewLeft - padding;
+                const visibleRight = viewRight + padding;
+                const visibleTop = viewTop - padding;
+                const visibleBottom = viewBottom + padding;
+                
                 this.stars.forEach(s => {
+                    // Skip stars outside visible area
+                    if(s.x < visibleLeft || s.x > visibleRight || s.y < visibleTop || s.y > visibleBottom) {
+                        return;
+                    }
+                    
                     // Flicker effect
                     const flickerIntensity = 0.7 + Math.sin(time * s.speed + s.flicker) * 0.3;
                     const alpha = s.glow * flickerIntensity;
