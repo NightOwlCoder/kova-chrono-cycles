@@ -860,7 +860,8 @@
             dimension: 0, resources: new Array(10).fill(0), rings: [], unlockedLayers: 1, selectedRes: 0, selectedRPM: 0, 
             lastTime: performance.now(), buyAmount: 1, chronons: 0, infinityPoints: 0, 
             autoBuyEnabled: true,
-            layerAutoBuy: new Array(10).fill(false), 
+            layerAutoBuy: new Array(10).fill(false),
+            layerAutoBuyPurchased: new Array(10).fill(false), // Track if auto-buy was purchased
             floatersEnabled: new Array(10).fill(true),
             
             // v8.0 Reality Vars
@@ -936,6 +937,7 @@
                 });
                 // Ensure array lengths match config
                 if(this.layerAutoBuy.length < 10) this.layerAutoBuy = new Array(10).fill(false);
+                if(this.layerAutoBuyPurchased.length < 10) this.layerAutoBuyPurchased = new Array(10).fill(false);
                 if(this.floatersEnabled.length < 10) this.floatersEnabled = new Array(10).fill(true);
             },
 
@@ -1014,11 +1016,13 @@
                 const dist = Math.sqrt(dx*dx + dy*dy);
                 if(dist < this.blackHoleSize + 20) {
                     this.blackHoleMass += 1;
-                    if(this.blackHoleSize < 450) {
-                        this.blackHoleSize = 10 + Math.log(this.blackHoleMass + 1) * 15;
+                    // Grow slower: use log base 1.5 instead of log base e, and increase max size to 3x (1350)
+                    if(this.blackHoleSize < 1350) {
+                        // Slower growth: using log base 1.5 makes it grow slower
+                        this.blackHoleSize = 10 + Math.log(this.blackHoleMass + 1) / Math.log(1.5) * 10;
                     }
                     this.infinityPoints += 1; 
-                    UI.spawnText(`+1 Essence`, 0, true);
+                    UI.spawnText(`+1 Essence`, 0, true, 'blue-purple');
                     Renderer.clickEffect(e.clientX, e.clientY, '#bd00ff');
                     UI.updateMainDisplay();
                 }
@@ -1197,18 +1201,26 @@
             },
             toggleLayerAutoBuy(idx) {
                 if(!this.layerAutoBuy[idx]) {
-                    // Need to purchase first - scaling cost: each layer costs more
-                    const cost = Math.floor((idx + 1) * Math.pow(2.5, idx));
-                    if(this.chronons >= cost) {
-                        this.chronons -= cost;
+                    // Need to purchase first if not already purchased
+                    if(!this.layerAutoBuyPurchased[idx]) {
+                        const cost = Math.floor((idx + 1) * Math.pow(2.5, idx));
+                        if(this.chronons >= cost) {
+                            this.chronons -= cost;
+                            this.layerAutoBuyPurchased[idx] = true;
+                            this.layerAutoBuy[idx] = true;
+                            UI.updateShopUI();
+                            UI.updatePrestigeUI();
+                            UI.buildAutoBuyMenu();
+                            UI.buildUpgrades();
+                        }
+                    } else {
+                        // Already purchased, just toggle on
                         this.layerAutoBuy[idx] = true;
-                        UI.updateShopUI();
-                        UI.updatePrestigeUI();
                         UI.buildAutoBuyMenu();
                         UI.buildUpgrades();
                     }
                 } else {
-                    // Just toggle off
+                    // Just toggle off (doesn't lose purchase)
                     this.layerAutoBuy[idx] = false;
                     UI.buildAutoBuyMenu();
                     UI.buildUpgrades();
@@ -1242,6 +1254,7 @@
                 this.infinityPoints = profile.infinityPoints !== undefined ? profile.infinityPoints : 0;
                 this.artifacts = profile.artifacts ? {...profile.artifacts} : { prism: false, anchor: false, chart: false };
                 this.layerAutoBuy = profile.layerAutoBuy ? [...profile.layerAutoBuy] : new Array(10).fill(false);
+                this.layerAutoBuyPurchased = profile.layerAutoBuyPurchased ? [...profile.layerAutoBuyPurchased] : new Array(10).fill(false);
                 this.floatersEnabled = profile.floatersEnabled ? [...profile.floatersEnabled] : new Array(10).fill(true);
                 this.selectedRPM = profile.selectedRPM !== undefined ? profile.selectedRPM : 0;
                 this.blackHoleSize = profile.blackHoleSize !== undefined ? profile.blackHoleSize : 10;
@@ -1355,6 +1368,7 @@
                         infUpgrades: { weave: 0, void: 0 },
                         artifacts: { prism: false, anchor: false, chart: false },
                         layerAutoBuy: new Array(10).fill(false),
+                        layerAutoBuyPurchased: new Array(10).fill(false),
                         floatersEnabled: new Array(10).fill(true),
                         selectedRPM: 0
                     };
@@ -1362,6 +1376,10 @@
                     // Switch to challenge profile
                     this.currentProfile = profileId;
                     this.loadProfile(profileId);
+                    
+                    // Change selected currency to Entropy layer (0)
+                    this.selectedRPM = 0;
+                    UI.selectCurr(0);
                     
                     // Save the new profile
                     this.save();
@@ -1453,6 +1471,7 @@
                     chronons: this.chronons,
                     autoBuyEnabled: this.autoBuyEnabled,
                     layerAutoBuy: this.layerAutoBuy,
+                    layerAutoBuyPurchased: this.layerAutoBuyPurchased,
                     floatersEnabled: this.floatersEnabled,
                     unlockedLayers: this.unlockedLayers,
                     dimension: this.dimension,
@@ -1479,6 +1498,8 @@
                     if(data.chronons !== undefined) this.chronons = data.chronons;
                     if(data.autoBuyEnabled !== undefined) this.autoBuyEnabled = data.autoBuyEnabled;
                     if(data.layerAutoBuy) this.layerAutoBuy = data.layerAutoBuy;
+                    if(data.layerAutoBuyPurchased) this.layerAutoBuyPurchased = data.layerAutoBuyPurchased;
+                    else this.layerAutoBuyPurchased = new Array(10).fill(false);
                     if(data.floatersEnabled) this.floatersEnabled = data.floatersEnabled;
                     if(data.unlockedLayers !== undefined) this.unlockedLayers = data.unlockedLayers;
                     if(data.dimension !== undefined) this.dimension = data.dimension;
@@ -1570,8 +1591,8 @@
 
                     // PARTICLE LOGIC (VOID SIPHON) - EXPONENTIAL BUFF
                     if (this.dimension === 1) {
-                        // Math: 1.5 ^ level
-                        const targetCount = Math.min(50, Math.floor(Math.pow(1.5, this.infUpgrades.void)));
+                        // Math: 1.5 ^ level - increased max particles for more visual density
+                        const targetCount = Math.min(150, Math.floor(Math.pow(1.5, this.infUpgrades.void)) * 3);
                         // Auto-gain from high levels without particles
                         if(this.infUpgrades.void > 10) {
                             let autoGain = Math.pow(1.8, this.infUpgrades.void) * dt;
@@ -1757,7 +1778,7 @@
 
                     // PHYSICS LOOP (REALITY)
                     if(this.dimension === 2) {
-                        let realityTorque = Math.log10(Math.max(1, totalInnerRPM));
+                        let realityTorque = Math.log10(Math.max(1, totalInnerRPM)) * 1.5; // Increased base torque by 50%
                         if (this.artifacts.prism) realityTorque *= 1.1; // +10%
                         
                         // Upgrades
@@ -2767,6 +2788,7 @@
                     item.style.marginBottom = '8px';
                     
                     const isEnabled = Game.layerAutoBuy[i];
+                    const isPurchased = Game.layerAutoBuyPurchased[i];
                     const cost = Math.floor((i + 1) * Math.pow(2.5, i));
                     
                     item.innerHTML = `
@@ -2782,7 +2804,11 @@
                         btn.innerText = 'ON';
                         btn.onclick = () => { Game.toggleLayerAutoBuy(i); this.buildAutoBuyMenu(); };
                     } else {
-                        if(Game.chronons >= cost) {
+                        if(isPurchased) {
+                            // Already purchased, can toggle on for free
+                            btn.innerText = 'OFF';
+                            btn.onclick = () => { Game.toggleLayerAutoBuy(i); this.buildAutoBuyMenu(); };
+                        } else if(Game.chronons >= cost) {
                             btn.innerText = `ENABLE (${Format(cost)} Chronons)`;
                             btn.onclick = () => { Game.toggleLayerAutoBuy(i); this.buildAutoBuyMenu(); UI.updatePrestigeUI(); };
                         } else {
@@ -2860,7 +2886,7 @@
                      document.getElementById('lore-box').style.borderColor = "#ffd700";
                 } else document.getElementById('lore-box').style.borderColor = "#40e0d0";
             },
-            spawnText(text, layerIdx, isGradient = false) {
+            spawnText(text, layerIdx, isGradient = false, gradientType = 'gold') {
                 if(!Game.settings.floaters) return;
                 // Check per-layer toggle
                 if(!isGradient && layerIdx !== undefined && !Game.floatersEnabled[layerIdx]) return;
@@ -2868,7 +2894,17 @@
                 const el = document.createElement('div');
                 el.className = 'floater';
                 if(isGradient) {
-                    el.classList.add('reality-text'); // Apply big gold style if reality
+                    if(gradientType === 'blue-purple') {
+                        el.style.background = 'linear-gradient(135deg, #4169E1, #9370DB, #BA55D3)';
+                        el.style.webkitBackgroundClip = 'text';
+                        el.style.backgroundClip = 'text';
+                        el.style.webkitTextFillColor = 'transparent';
+                        el.style.textShadow = 'none';
+                        el.style.fontSize = '1.5rem';
+                        el.style.fontWeight = 'bold';
+                    } else {
+                        el.classList.add('reality-text'); // Apply big gold style if reality
+                    }
                 } else {
                     const color = CONFIG.layers[layerIdx] ? CONFIG.layers[layerIdx].color : '#fff';
                     el.style.color = color;
