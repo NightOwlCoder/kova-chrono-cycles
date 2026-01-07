@@ -1233,18 +1233,38 @@
             loadProfile(profileName) {
                 if(!this.profiles[profileName]) return false;
                 const profile = this.profiles[profileName];
-                this.resources = [...profile.resources];
-                this.rings = JSON.parse(JSON.stringify(profile.rings));
-                this.reality = JSON.parse(JSON.stringify(profile.reality));
-                this.dimension = profile.dimension;
-                this.unlockedLayers = profile.unlockedLayers;
-                this.chronons = profile.chronons;
-                this.infinityPoints = profile.infinityPoints;
-                this.artifacts = {...profile.artifacts};
-                this.layerAutoBuy = [...profile.layerAutoBuy];
-                this.floatersEnabled = [...profile.floatersEnabled];
-                this.selectedRPM = profile.selectedRPM || 0;
+                this.resources = profile.resources ? [...profile.resources] : new Array(10).fill(0);
+                this.rings = profile.rings ? JSON.parse(JSON.stringify(profile.rings)) : [];
+                this.reality = profile.reality ? JSON.parse(JSON.stringify(profile.reality)) : { shards: 0, rings: [], upgrades: { speed: 0, value: 0 } };
+                this.dimension = profile.dimension !== undefined ? profile.dimension : 0;
+                this.unlockedLayers = profile.unlockedLayers !== undefined ? profile.unlockedLayers : 1;
+                this.chronons = profile.chronons !== undefined ? profile.chronons : 0;
+                this.infinityPoints = profile.infinityPoints !== undefined ? profile.infinityPoints : 0;
+                this.artifacts = profile.artifacts ? {...profile.artifacts} : { prism: false, anchor: false, chart: false };
+                this.layerAutoBuy = profile.layerAutoBuy ? [...profile.layerAutoBuy] : new Array(10).fill(false);
+                this.floatersEnabled = profile.floatersEnabled ? [...profile.floatersEnabled] : new Array(10).fill(true);
+                this.selectedRPM = profile.selectedRPM !== undefined ? profile.selectedRPM : 0;
+                this.blackHoleSize = profile.blackHoleSize !== undefined ? profile.blackHoleSize : 10;
+                this.blackHoleMass = profile.blackHoleMass !== undefined ? profile.blackHoleMass : 0;
+                this.infUpgrades = profile.infUpgrades ? JSON.parse(JSON.stringify(profile.infUpgrades)) : { weave: 0, void: 0 };
                 this.currentProfile = profileName;
+                
+                // Ensure rings are properly initialized
+                if(!this.rings || this.rings.length === 0) {
+                    this.resetRings();
+                }
+                
+                // Ensure reality rings are initialized
+                if(!this.reality.rings || this.reality.rings.length === 0) {
+                    this.initRealityRings();
+                }
+                
+                // Update UI
+                UI.buildUpgrades();
+                UI.updateRPMList();
+                UI.updateCurrList();
+                UI.updateMainDisplay();
+                UI.updatePrestigeUI();
                 return true;
             },
             
@@ -1319,18 +1339,32 @@
                             solidTime: 0
                         })),
                         unlockedLayers: 1,
+                        dimension: 0,
                         chronons: 0,
                         infinityPoints: 0,
-                        reality: JSON.parse(JSON.stringify(this.reality)),
+                        reality: {
+                            shards: 0,
+                            rings: [{ velocity: 0, torque: 0, angle: 0 }],
+                            upgrades: { speed: 0, value: 0 },
+                            activeChallenge: challengeId,
+                            completedChallenges: [],
+                            universalConstants: { torqueMultiplier: 0, shardMultiplier: 0, frictionReduction: 0, speedBoost: 0 }
+                        },
                         blackHoleSize: 10,
                         blackHoleMass: 0,
-                        infUpgrades: { weave: 0, void: 0 }
+                        infUpgrades: { weave: 0, void: 0 },
+                        artifacts: { prism: false, anchor: false, chart: false },
+                        layerAutoBuy: new Array(10).fill(false),
+                        floatersEnabled: new Array(10).fill(true),
+                        selectedRPM: 0
                     };
                     
                     // Switch to challenge profile
                     this.currentProfile = profileId;
                     this.loadProfile(profileId);
-                    this.reality.activeChallenge = challengeId;
+                    
+                    // Save the new profile
+                    this.save();
                     
                     // Return to microcosm
                     this.dimension = 0;
@@ -2660,6 +2694,67 @@
                 html += `<button class="toggle-btn" onclick="document.getElementById('challenges-modal').classList.remove('open')" style="margin-top:15px;">CLOSE</button>`;
                 
                 modal.innerHTML = html;
+            },
+            buildProfileMenu() {
+                const list = document.getElementById('profile-list');
+                if(!list) return;
+                list.innerHTML = '';
+                
+                // Always show main profile + 3 challenge slots
+                const profileSlots = [
+                    { id: 'main', name: 'Main Profile', isMain: true },
+                    { id: 'challenge_frictionless', name: 'Frictionless Void', isMain: false },
+                    { id: 'challenge_entropy', name: 'Entropy Only', isMain: false },
+                    { id: 'challenge_reverse', name: 'Reverse Polarity', isMain: false }
+                ];
+                
+                profileSlots.forEach(slot => {
+                    const exists = Game.profiles[slot.id] !== null && Game.profiles[slot.id] !== undefined;
+                    const isCurrent = Game.currentProfile === slot.id;
+                    
+                    const item = document.createElement('div');
+                    item.style.cssText = `
+                        border: 2px solid ${isCurrent ? '#64ffda' : '#444'};
+                        border-radius: 8px;
+                        padding: 15px;
+                        margin-bottom: 10px;
+                        background: ${isCurrent ? 'rgba(100, 255, 218, 0.1)' : 'rgba(10, 10, 20, 0.5)'};
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    `;
+                    
+                    if(exists) {
+                        item.innerHTML = `
+                            <div style="font-weight:bold; color:${isCurrent ? '#64ffda' : '#fff'}; margin-bottom:5px;">
+                                ${slot.name} ${isCurrent ? '✓' : ''}
+                            </div>
+                            <div style="color:#aaa; font-size:0.85rem;">
+                                ${slot.isMain ? 'Your main game progress' : 'Challenge profile'}
+                            </div>
+                        `;
+                        item.onclick = () => {
+                            if(!isCurrent) {
+                                Game.loadProfile(slot.id);
+                                UI.buildProfileMenu();
+                                UI.buildUpgrades();
+                                UI.updateRPMList();
+                                UI.updateCurrList();
+                                UI.updateMainDisplay();
+                                document.getElementById('profile-modal').classList.remove('open');
+                            }
+                        };
+                    } else {
+                        item.innerHTML = `
+                            <div style="color:#666; font-style:italic; text-align:center;">
+                                ${slot.name}<br>
+                                <span style="font-size:0.8rem;">(Empty)</span>
+                            </div>
+                        `;
+                        item.style.opacity = '0.5';
+                    }
+                    
+                    list.appendChild(item);
+                });
             },
             buildAutoBuyMenu() {
                 const list = document.getElementById('autobuy-list');
