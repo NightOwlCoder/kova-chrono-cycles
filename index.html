@@ -75,7 +75,7 @@
             max-height: 80vh; overflow-y: auto;
         }
         
-        #shop-modal, #forge-modal {
+        #shop-modal, #forge-modal, #challenges-modal {
             top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 500px; right: auto;
         }
@@ -743,6 +743,35 @@
             realityLayers: [
                 { name: "Reality", currency: "Reality Shards", icon: "👁️", color: "#ffd700", lore: "The Universe is merely fuel for the machine." }
             ],
+            challenges: [
+                {
+                    id: 'frictionless',
+                    name: 'The Frictionless Void',
+                    desc: 'Friction is 0, but Torque is capped at 1. Can you reach Infinity?',
+                    reward: 'Torque Multiplier +20%',
+                    rewardType: 'torqueMultiplier',
+                    rewardValue: 0.20,
+                    condition: (game) => game.infinityPoints >= 1e12
+                },
+                {
+                    id: 'entropy',
+                    name: 'Entropy Only',
+                    desc: 'Only the first ring works. The other 9 are broken.',
+                    reward: 'Shard Multiplier +30%',
+                    rewardType: 'shardMultiplier',
+                    rewardValue: 0.30,
+                    condition: (game) => game.rings[0] && game.rings[0].velocity >= 100000
+                },
+                {
+                    id: 'reverse',
+                    name: 'Reverse Polarity',
+                    desc: 'All rings spin backwards. Resources only generate on negative RPM.',
+                    reward: 'Speed Boost +20%',
+                    rewardType: 'speedBoost',
+                    rewardValue: 0.20,
+                    condition: (game) => game.rings.every(r => r.velocity <= -1000)
+                }
+            ],
             baseRadius: 60,
             spacing: 35,
             friction: 2.0,
@@ -1006,6 +1035,8 @@
                     angle: 0, velocity: 0, torque: 0
                 }];
                 if(!this.reality.upgrades) this.reality.upgrades = { speed: 0, value: 0 };
+                if(!this.reality.completedChallenges) this.reality.completedChallenges = [];
+                if(!this.reality.universalConstants) this.reality.universalConstants = { torqueMultiplier: 0, shardMultiplier: 0, frictionReduction: 0, speedBoost: 0 };
             },
 
             warpToInfinity() {
@@ -1237,6 +1268,74 @@
                     this.reality.upgrades[type]++;
                     UI.buildUpgrades(); // Rebuild to update cost/level
                     UI.updateMainDisplay();
+                }
+            },
+            
+            activateChallenge(challengeId) {
+                const challenge = CONFIG.challenges.find(c => c.id === challengeId);
+                if(!challenge) return;
+                
+                // Save current state to main profile
+                if(this.currentProfile === 'main') {
+                    this.profiles.main = {
+                        resources: JSON.parse(JSON.stringify(this.resources)),
+                        rings: JSON.parse(JSON.stringify(this.rings)),
+                        unlockedLayers: this.unlockedLayers,
+                        chronons: this.chronons,
+                        infinityPoints: this.infinityPoints,
+                        reality: JSON.parse(JSON.stringify(this.reality))
+                    };
+                }
+                
+                // Create challenge profile
+                const profileId = `challenge_${challengeId}`;
+                this.profiles[profileId] = {
+                    resources: new Array(10).fill(0),
+                    rings: this.rings.map(() => ({ velocity: 0, torque: 0, angle: 0, upgrades: { speed: 0, value: 0, auto: 0 }, prestigeLevel: 0, baseVal: 0 })),
+                    unlockedLayers: 1,
+                    chronons: 0,
+                    infinityPoints: 0,
+                    reality: JSON.parse(JSON.stringify(this.reality))
+                };
+                
+                // Switch to challenge profile
+                this.currentProfile = profileId;
+                this.loadProfile(profileId);
+                this.reality.activeChallenge = challengeId;
+                
+                // Return to microcosm
+                this.dimension = 0;
+                document.getElementById('return-btn').style.display = 'none';
+                document.getElementById('reality-btn').style.display = 'none';
+                document.getElementById('forge-open-btn').style.display = 'none';
+                document.getElementById('challenges-open-btn').style.display = 'none';
+                document.getElementById('profile-btn').style.display = 'block';
+                document.getElementById('game-title').innerText = "CHRONO ENGINE";
+                document.getElementById('game-title').style.color = "#fff";
+                
+                UI.buildUpgrades();
+                UI.updateRPMList();
+                UI.updateCurrList();
+                UI.buildChallenges();
+                Achievements.show("CHALLENGE ACTIVATED", challenge.name, "#ffd700");
+            },
+            
+            checkChallengeCompletion() {
+                if(!this.reality.activeChallenge) return;
+                const challenge = CONFIG.challenges.find(c => c.id === this.reality.activeChallenge);
+                if(!challenge) return;
+                
+                if(challenge.condition(this)) {
+                    // Complete challenge
+                    if(!this.reality.completedChallenges) this.reality.completedChallenges = [];
+                    if(!this.reality.completedChallenges.includes(challenge.id)) {
+                        this.reality.completedChallenges.push(challenge.id);
+                        if(!this.reality.universalConstants) this.reality.universalConstants = { torqueMultiplier: 0, shardMultiplier: 0, frictionReduction: 0, speedBoost: 0 };
+                        this.reality.universalConstants[challenge.rewardType] += challenge.rewardValue;
+                        Achievements.show("CHALLENGE COMPLETE", challenge.reward, "#0ff");
+                        UI.buildChallenges();
+                    }
+                    this.reality.activeChallenge = null;
                 }
             },
 
@@ -1482,6 +1581,38 @@
                         }
                     }
 
+                    // Apply challenge physics modifications
+                    if(this.reality.activeChallenge) {
+                        const challenge = CONFIG.challenges.find(c => c.id === this.reality.activeChallenge);
+                        if(challenge) {
+                            if(challenge.id === 'frictionless') {
+                                // Friction is 0, torque capped at 1
+                                this._challengeFriction = 0;
+                                this._challengeMaxTorque = 1;
+                            } else if(challenge.id === 'entropy') {
+                                // Only first ring works
+                                for(let i = 1; i < 10; i++) {
+                                    if(this.rings[i]) {
+                                        this.rings[i].torque = 0;
+                                        this.rings[i].velocity = 0;
+                                    }
+                                }
+                            } else if(challenge.id === 'reverse') {
+                                // All rings spin backwards
+                                this.rings.forEach(r => {
+                                    if(r.velocity > 0) r.velocity = -r.velocity;
+                                });
+                            }
+                        }
+                    }
+                    
+                    // Apply Universal Constants
+                    if(this.reality.universalConstants) {
+                        this._universalTorqueMult = 1 + (this.reality.universalConstants.torqueMultiplier || 0);
+                        this._universalShardMult = 1 + (this.reality.universalConstants.shardMultiplier || 0);
+                        this._universalSpeedBoost = 1 + (this.reality.universalConstants.speedBoost || 0);
+                    }
+                    
                     // PHYSICS LOOP (INNER)
                     let totalInnerRPM = 0;
                     this.rings.forEach((ring, i) => {
@@ -1489,6 +1620,10 @@
                         
                         let minTorque = ring.upgrades.auto * 25; 
                         let fric = CONFIG.friction * (this.eventFriction !== undefined ? this.eventFriction : 1);
+                        if(this._challengeFriction !== undefined) fric = this._challengeFriction;
+                        if(this.reality.universalConstants && this.reality.universalConstants.frictionReduction) {
+                            fric *= (1 - this.reality.universalConstants.frictionReduction);
+                        }
 
                         if (ring.torque > minTorque) {
                             ring.torque -= fric * dt * (1 + ring.torque * 0.02);
@@ -1497,8 +1632,19 @@
                             ring.torque += fric * dt * 5;
                         }
                         if(ring.torque < 0) ring.torque = 0;
+                        
+                        // Apply challenge torque cap
+                        if(this._challengeMaxTorque !== undefined && ring.torque > this._challengeMaxTorque) {
+                            ring.torque = this._challengeMaxTorque;
+                        }
+                        
+                        // Apply universal torque multiplier
+                        if(this._universalTorqueMult) {
+                            ring.torque *= this._universalTorqueMult;
+                        }
 
                         let mult = this.getLayerMult(i);
+                        if(this._universalSpeedBoost) mult *= this._universalSpeedBoost;
                         let targetVelocity = ring.torque * mult;
 
                         ring.velocity += (targetVelocity - ring.velocity) * 5 * dt;
@@ -1560,6 +1706,9 @@
                             UI.updateMainDisplay();
                         }
                     }
+                    
+                    // Check challenge completion
+                    this.checkChallengeCompletion();
 
                     if (this.dimension === 0 && this.unlockedLayers < CONFIG.layers.length) {
                         let currentRing = this.rings[this.unlockedLayers - 1];
@@ -1812,12 +1961,7 @@
             draw() {
                 this.ctx.fillStyle = '#050508'; this.ctx.fillRect(0,0,this.canvas.width, this.canvas.height);
                 
-                // Apply camera transform
-                this.ctx.save();
-                this.ctx.translate(this.cx + this.cameraX, this.cy + this.cameraY);
-                this.ctx.scale(this.zoom, this.zoom);
-                
-                // SPACE BACKGROUND (Infinity & Reality)
+                // SPACE BACKGROUND (Infinity & Reality) - Draw in screen space BEFORE camera transform
                 if(Game.dimension === 1 || Game.dimension === 2) {
                     this.ctx.fillStyle = '#fff';
                     
@@ -1861,11 +2005,13 @@
                     this.ctx.globalAlpha = 1;
                 }
 
+                // Apply camera transform to game objects
                 let shakeX = 0, shakeY = 0;
                 if(this.impulseShake > 0) { shakeX += (Math.random() - 0.5) * this.impulseShake; shakeY += (Math.random() - 0.5) * this.impulseShake; this.impulseShake *= 0.9; }
                 
-                this.ctx.save(); 
-                this.ctx.translate(this.cx + shakeX, this.cy + shakeY);
+                this.ctx.save();
+                this.ctx.translate(this.cx + this.cameraX + shakeX, this.cy + this.cameraY + shakeY);
+                this.ctx.scale(this.zoom, this.zoom);
 
                 // DRAW VOID PARTICLES
                 if(Game.dimension === 1) {
@@ -2361,15 +2507,49 @@
                 if(Game.artifacts.chart) { const b = document.getElementById('forge-btn-chart'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
             },
             buildChallenges() {
-                // Placeholder for challenges - will be implemented when challenges are added back
                 const modal = document.getElementById('challenges-modal');
-                if(modal) {
-                    modal.innerHTML = `
-                        <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px; color:#ffd700;">THE MULTIVERSE</div>
-                        <div style="text-align:center; color:#aaa; font-size:0.8rem; margin-bottom:10px;">Challenges coming soon...</div>
-                        <button class="toggle-btn" onclick="document.getElementById('challenges-modal').classList.remove('open')">CLOSE</button>
+                if(!modal) return;
+                
+                let html = `<div style="color:#ffd700; font-weight:bold; text-align:center; margin-bottom:15px; font-size:1.2rem;">🌌 THE MULTIVERSE</div>`;
+                
+                if(!Game.reality.completedChallenges) Game.reality.completedChallenges = [];
+                if(!Game.reality.universalConstants) Game.reality.universalConstants = { torqueMultiplier: 0, shardMultiplier: 0, frictionReduction: 0, speedBoost: 0 };
+                
+                CONFIG.challenges.forEach(challenge => {
+                    const isCompleted = Game.reality.completedChallenges.includes(challenge.id);
+                    const hasConstant = Game.reality.universalConstants[challenge.rewardType] > 0;
+                    
+                    html += `
+                        <div style="border:2px solid ${isCompleted ? '#0f0' : '#ffd700'}; border-radius:8px; padding:15px; margin-bottom:10px; background:rgba(255,215,0,0.1);">
+                            <div style="font-weight:bold; color:#ffd700; margin-bottom:5px;">${challenge.name}</div>
+                            <div style="color:#aaa; font-size:0.9rem; margin-bottom:8px;">${challenge.desc}</div>
+                            <div style="color:#0ff; font-size:0.85rem; margin-bottom:8px;">Reward: ${challenge.reward}</div>
+                            ${isCompleted ? '<div style="color:#0f0; font-weight:bold;">✓ COMPLETED</div>' : 
+                              `<button class="toggle-btn" onclick="Game.activateChallenge('${challenge.id}')" style="width:100%;">START CHALLENGE</button>`}
+                        </div>
                     `;
+                });
+                
+                // Show Universal Constants
+                html += `<div style="margin-top:20px; padding-top:15px; border-top:1px solid #444;">
+                    <div style="color:#ffd700; font-weight:bold; margin-bottom:10px;">UNIVERSAL CONSTANTS</div>`;
+                if(Game.reality.universalConstants.torqueMultiplier > 0) {
+                    html += `<div style="color:#0ff; font-size:0.9rem;">Torque Multiplier: +${(Game.reality.universalConstants.torqueMultiplier * 100).toFixed(0)}%</div>`;
                 }
+                if(Game.reality.universalConstants.shardMultiplier > 0) {
+                    html += `<div style="color:#0ff; font-size:0.9rem;">Shard Multiplier: +${(Game.reality.universalConstants.shardMultiplier * 100).toFixed(0)}%</div>`;
+                }
+                if(Game.reality.universalConstants.speedBoost > 0) {
+                    html += `<div style="color:#0ff; font-size:0.9rem;">Speed Boost: +${(Game.reality.universalConstants.speedBoost * 100).toFixed(0)}%</div>`;
+                }
+                if(Object.values(Game.reality.universalConstants).every(v => v === 0)) {
+                    html += `<div style="color:#666; font-size:0.85rem;">Complete challenges to earn Universal Constants!</div>`;
+                }
+                html += `</div>`;
+                
+                html += `<button class="toggle-btn" onclick="document.getElementById('challenges-modal').classList.remove('open')" style="margin-top:15px;">CLOSE</button>`;
+                
+                modal.innerHTML = html;
             },
             buildAutoBuyMenu() {
                 const list = document.getElementById('autobuy-list');
