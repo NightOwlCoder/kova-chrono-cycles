@@ -453,7 +453,7 @@
     <div class="top-right-ui">
         <div class="icon-row">
             <button class="icon-btn" onclick="document.getElementById('ach-modal').classList.toggle('open'); UI.showAchievements()">🏆</button>
-            <button class="icon-btn" onclick="document.getElementById('settings-modal').classList.toggle('open')">⚙</button>
+            <button class="icon-btn" onclick="document.getElementById('settings-modal').classList.toggle('open'); document.getElementById('settings-hint').style.display = 'none';">⚙</button>
             <button class="icon-btn" onclick="document.getElementById('help-modal').classList.toggle('open')">❓</button>
             <button class="icon-btn" id="profile-btn" onclick="document.getElementById('profile-modal').classList.toggle('open'); UI.buildProfileMenu()" style="display:none;">👤</button>
         </div>
@@ -601,6 +601,12 @@
         <button class="toggle-btn" onclick="document.getElementById('forge-modal').classList.remove('open')">CLOSE</button>
     </div>
 
+    <div id="challenges-modal" class="modal">
+        <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px; color:#ffd700;">THE MULTIVERSE</div>
+        <div style="text-align:center; color:#aaa; font-size:0.8rem; margin-bottom:10px;">Challenges coming soon...</div>
+        <button class="toggle-btn" onclick="document.getElementById('challenges-modal').classList.remove('open')">CLOSE</button>
+    </div>
+
     <div id="profile-modal" class="modal">
         <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px;">PROFILES</div>
         <div style="text-align:center; color:#aaa; font-size:0.8rem; margin-bottom:10px;">Switch between game states</div>
@@ -670,6 +676,10 @@
                 <button class="forge-open-btn" id="forge-open-btn" onclick="document.getElementById('forge-modal').classList.add('open'); UI.updateForgeUI()">
                     ⚒️ OPEN INFINITY FORGE
                 </button>
+                
+                <button class="forge-open-btn" id="challenges-open-btn" onclick="document.getElementById('challenges-modal').classList.add('open'); UI.buildChallenges()" style="display:none; background:linear-gradient(135deg, #ffd700, #ffaa00); border-color:#ffd700; color:#000;">
+                    🌌 THE MULTIVERSE
+                </button>
             </div>
             <div class="scroll-area" id="upgrades"></div>
         </div>
@@ -703,6 +713,12 @@
         <button class="dev-btn" onclick="Game.cheatSpeed()">+10% Speed</button>
         <button class="dev-btn" onclick="Game.unlockAll()">Unlock All Layers</button>
         <button class="dev-btn" onclick="Game.maxSpeed()">Set Speed to 1T</button>
+        <button class="dev-btn" onclick="Game.chronons += 100; UI.updatePrestigeUI()">+100 Chronons</button>
+        <button class="dev-btn" onclick="Game.reality.shards += 1e6; UI.updateMainDisplay()">+1M Reality Shards</button>
+        <button class="dev-btn" onclick="Game.infinityPoints += 1e12; UI.updateMainDisplay()">+1T Essence</button>
+        <button class="dev-btn" onclick="Game.rings.forEach((r, i) => { r.upgrades.speed = 20; r.upgrades.value = 20; r.upgrades.auto = 20; }); UI.buildUpgrades()">Max All Upgrades</button>
+        <button class="dev-btn" onclick="Game.reality.upgrades.speed = 10; Game.reality.upgrades.value = 10; UI.buildUpgrades()">Max Reality Upgrades</button>
+        <button class="dev-btn" onclick="Game.layerAutoBuy.fill(true); UI.buildUpgrades()">Enable All Auto-Buy</button>
         <button class="dev-btn" onclick="Game.hardWipe()">FORCE WIPE SAVE</button>
     </div>
 
@@ -895,7 +911,12 @@
             },
 
             handleCircleClick(e) {
-                const dx = e.clientX - window.innerWidth/2; const dy = e.clientY - window.innerHeight/2;
+                // Account for camera transform
+                const screenX = e.clientX;
+                const screenY = e.clientY;
+                const worldX = (screenX - Renderer.cx - Renderer.cameraX) / Renderer.zoom;
+                const worldY = (screenY - Renderer.cy - Renderer.cameraY) / Renderer.zoom;
+                const dx = worldX; const dy = worldY;
                 const dist = Math.sqrt(dx*dx + dy*dy);
                 
                 // Scale click detection for Reality mode
@@ -912,12 +933,21 @@
                     // Reality ring click detection
                     const realityRadius = (CONFIG.baseRadius + 90); // Same as drawRealityRings
                     if(Math.abs(dist - realityRadius) < 25) {
-                        // Clicked on Reality ring - add torque (reduced amount)
-                        const realityTorque = CONFIG.clickTorque * 0.3; // 30% of normal click torque
+                        // Clicked on Reality ring - add torque with click combo
+                        this.clickCombo += 0.005; 
+                        let maxCombo = 0.5 + (this.infUpgrades.weave * 0.05); 
+                        if(this.clickCombo > maxCombo) this.clickCombo = maxCombo; 
+                        this.comboGrace = 0.25;
+                        
+                        const baseTorque = CONFIG.clickTorque * 0.3; // 30% of normal click torque
+                        const comboBoost = 1 + this.clickCombo;
+                        const realityTorque = baseTorque * comboBoost;
+                        
                         if(this.reality.rings[0]) {
                             this.reality.rings[0].torque += realityTorque;
                             Renderer.clickEffect(e.clientX, e.clientY, CONFIG.realityLayers[0].color);
                             AudioSys.playTick(10);
+                            UI.updateComboUI();
                         }
                         return; // Don't process as inner ring click
                     }
@@ -1021,6 +1051,7 @@
                     // Hide Reality Button
                     document.getElementById('reality-btn').style.display = 'none';
                     document.getElementById('forge-open-btn').style.display = 'none';
+                    document.getElementById('challenges-open-btn').style.display = 'block';
                     document.getElementById('profile-btn').style.display = 'block';
                     
                     document.getElementById('game-title').innerText = "REALITY ENGINE";
@@ -1069,7 +1100,7 @@
                 const totalVal = this.getTotalValue();
                 // Exponential Chronon calculation: log10 of value/50000, multiplied by 10
                 // This makes it much harder to get Chronons as values increase
-                const pending = Math.floor(Math.log10(Math.max(1, totalVal / 50000)) * 10);
+                const pending = Math.floor(Math.log10(Math.max(1, totalVal / 50000)) * 3.14159);
                 
                 if(totalVal < 50000) return;
 
@@ -1131,7 +1162,7 @@
             toggleLayerAutoBuy(idx) {
                 if(!this.layerAutoBuy[idx]) {
                     // Need to purchase first - scaling cost: each layer costs more
-                    const cost = Math.floor((idx + 1) * Math.pow(1.5, idx));
+                    const cost = Math.floor((idx + 1) * Math.pow(2.5, idx));
                     if(this.chronons >= cost) {
                         this.chronons -= cost;
                         this.layerAutoBuy[idx] = true;
@@ -1552,9 +1583,15 @@
                     
                     Renderer.flash(idx);
                     
-                    // AUDIO FIX: Only play TICK if NOT in reality AND NOT at max speed
-                    if(this.dimension === 0 && ring.velocity < 1000000) {
+                    // AUDIO FIX: Only play TICK if velocity < 3000 or hasn't been over 3k for 1 second
+                    if(ring.velocity < 3000 || (ring.velocity >= 3000 && (!ring._highSpeedTime || (performance.now() - ring._highSpeedTime) < 1000))) {
                         AudioSys.playTick(idx);
+                    }
+                    if(ring.velocity >= 3000 && !ring._highSpeedTime) {
+                        ring._highSpeedTime = performance.now();
+                    }
+                    if(ring.velocity < 3000) {
+                        ring._highSpeedTime = null;
                     }
 
                     if (this.settings.floaters && this.floatersEnabled[idx]) {
@@ -1704,6 +1741,8 @@
             canvas: document.getElementById('game-canvas'),
             ctx: null, cx: 0, cy: 0,
             flashes: new Array(10).fill(0), shockwaves: [], clickWaves: [], particles: [], impulseShake: 0, stars: [],
+            cameraX: 0, cameraY: 0, zoom: 1.0,
+            isDragging: false, dragStartX: 0, dragStartY: 0,
 
             init() {
                 this.ctx = this.canvas.getContext('2d');
@@ -1711,6 +1750,28 @@
                 this.resize();
                 // Init Stars
                 for(let i=0; i<150; i++) this.stars.push({x: Math.random(), y: Math.random(), s: Math.random() * 2});
+                
+                // Camera controls
+                this.canvas.addEventListener('mousedown', (e) => {
+                    if(e.button === 0) { // Left click
+                        this.isDragging = true;
+                        this.dragStartX = e.clientX - this.cameraX;
+                        this.dragStartY = e.clientY - this.cameraY;
+                    }
+                });
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if(this.isDragging) {
+                        this.cameraX = e.clientX - this.dragStartX;
+                        this.cameraY = e.clientY - this.dragStartY;
+                    }
+                });
+                this.canvas.addEventListener('mouseup', () => { this.isDragging = false; });
+                this.canvas.addEventListener('mouseleave', () => { this.isDragging = false; });
+                this.canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                    this.zoom = Math.max(0.1, Math.min(5.0, this.zoom * zoomFactor));
+                });
             },
             resize() {
                 this.canvas.width = window.innerWidth;
@@ -1718,7 +1779,10 @@
                 this.cx = this.canvas.width/2; this.cy = this.canvas.height/2;
             },
             flash(i) { this.flashes[i] = 1.0; },
-            clickEffect(x, y, c) { this.clickWaves.push({x,y,r:0,a:1, c}); },
+            clickEffect(x, y, c) { 
+                // Store click position in screen coordinates (not transformed)
+                this.clickWaves.push({x,y,r:0,a:1, c}); 
+            },
             
             spawnVoidParticle() {
                 const ang = Math.random() * Math.PI * 2;
@@ -1747,6 +1811,11 @@
             },
             draw() {
                 this.ctx.fillStyle = '#050508'; this.ctx.fillRect(0,0,this.canvas.width, this.canvas.height);
+                
+                // Apply camera transform
+                this.ctx.save();
+                this.ctx.translate(this.cx + this.cameraX, this.cy + this.cameraY);
+                this.ctx.scale(this.zoom, this.zoom);
                 
                 // SPACE BACKGROUND (Infinity & Reality)
                 if(Game.dimension === 1 || Game.dimension === 2) {
@@ -1936,29 +2005,40 @@
                 // Draw the massive outer ring - REDUCED AGAIN in v8.2
                 const r = (CONFIG.baseRadius + (0 * 80)) + 90; // Reduced from 150 to 90
                 const ring = Game.reality.rings[0];
-                const color = CONFIG.realityLayers[0].color;
+                const color = '#ffd700'; // Golden yellow
                 
+                // Main ring with strong glow effect
                 this.ctx.beginPath();
                 this.ctx.arc(0, 0, r, 0, Math.PI*2);
-                this.ctx.lineWidth = 15;
+                this.ctx.lineWidth = 18;
                 this.ctx.strokeStyle = color;
                 this.ctx.shadowColor = color;
-                this.ctx.shadowBlur = 20;
+                this.ctx.shadowBlur = 40; // Strong glow
+                this.ctx.stroke();
+                
+                // Inner glow layer
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, r, 0, Math.PI*2);
+                this.ctx.lineWidth = 12;
+                this.ctx.strokeStyle = '#ffed4e'; // Brighter yellow
+                this.ctx.shadowBlur = 25;
                 this.ctx.stroke();
                 
                 // Active Arc
                 this.ctx.beginPath();
                 this.ctx.arc(0, 0, r, -Math.PI/2, ring.angle - Math.PI/2);
                 this.ctx.strokeStyle = "#fff";
-                this.ctx.lineWidth = 4;
+                this.ctx.lineWidth = 5;
+                this.ctx.shadowBlur = 20;
                 this.ctx.stroke();
                 
-                // Planet/Node indicator
+                // Planet/Node indicator with glow
                 let hx = Math.cos(ring.angle - Math.PI/2)*r; 
                 let hy = Math.sin(ring.angle - Math.PI/2)*r;
-                this.ctx.fillStyle = '#fff'; 
+                this.ctx.fillStyle = '#ffd700'; 
+                this.ctx.shadowBlur = 25;
                 this.ctx.beginPath(); 
-                this.ctx.arc(hx, hy, 8, 0, Math.PI*2); 
+                this.ctx.arc(hx, hy, 10, 0, Math.PI*2); 
                 this.ctx.fill();
                 
                 this.ctx.shadowBlur = 0;
@@ -2232,7 +2312,8 @@
                 document.getElementById('prestige-container').style.display = 'block';
                 document.getElementById('chronon-val').innerText = Format(Game.chronons);
                 
-                let pending = Math.floor(totalVal / 50000);
+                // Use same formula as doPrestige
+                const pending = Math.floor(Math.log10(Math.max(1, totalVal / 50000)) * 3.14159);
                 const btn = document.getElementById('prestige-btn');
                 
                 if(totalVal >= 50000) { 
@@ -2279,6 +2360,17 @@
                 if(Game.artifacts.anchor) { const b = document.getElementById('forge-btn-anchor'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
                 if(Game.artifacts.chart) { const b = document.getElementById('forge-btn-chart'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
             },
+            buildChallenges() {
+                // Placeholder for challenges - will be implemented when challenges are added back
+                const modal = document.getElementById('challenges-modal');
+                if(modal) {
+                    modal.innerHTML = `
+                        <div style="color:white; font-weight:bold; text-align:center; margin-bottom:5px; color:#ffd700;">THE MULTIVERSE</div>
+                        <div style="text-align:center; color:#aaa; font-size:0.8rem; margin-bottom:10px;">Challenges coming soon...</div>
+                        <button class="toggle-btn" onclick="document.getElementById('challenges-modal').classList.remove('open')">CLOSE</button>
+                    `;
+                }
+            },
             buildAutoBuyMenu() {
                 const list = document.getElementById('autobuy-list');
                 list.innerHTML = '';
@@ -2290,7 +2382,7 @@
                     item.style.marginBottom = '8px';
                     
                     const isEnabled = Game.layerAutoBuy[i];
-                    const cost = Math.floor((i + 1) * Math.pow(1.5, i));
+                    const cost = Math.floor((i + 1) * Math.pow(2.5, i));
                     
                     item.innerHTML = `
                         <div>
