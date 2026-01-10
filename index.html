@@ -1386,7 +1386,12 @@
                 
                 // Calculate Void Cores: log10(maxEssence / 1e9) * multiplier
                 // Similar to Chronons but for Infinity
-                let voidCores = Math.floor(Math.log10(Math.max(1, currentMax / 1e9)) * 2.5);
+                // Fix: Ensure at least 1 core if you have 1e9 or more
+                const essenceRatio = currentMax / 1e9;
+                let voidCores = 0;
+                if(essenceRatio >= 1) {
+                    voidCores = Math.max(1, Math.floor(Math.log10(essenceRatio) * 2.5) + 1);
+                }
                 
                 if(confirm(`COLLAPSE SINGULARITY? You will lose ALL Infinity upgrades and Essence. You will gain ${voidCores} Void Cores. Continue?`)) {
                     // Add Void Cores BEFORE reset
@@ -2187,7 +2192,7 @@
                                 p.history = [];
                             }
                             p.history.push({x: p.x, y: p.y});
-                            if(p.history.length > 10) p.history.shift();
+                            if(p.history.length > 5) p.history.shift(); // Half the trail length
                         });
 
                         // Cosmic Particles (satisfying particles) - spawn with staggered timing
@@ -2844,7 +2849,15 @@
 
                 // DRAW VOID PARTICLES
                 if(Game.dimension === 1) {
+                    // Optimize: Skip particles when zoomed in to maintain performance
+                    const particleSkip = this.zoom > 1.5 ? Math.ceil(this.zoom / 1.5) : 1;
+                    let particleIndex = 0;
+                    
                     Game.voidParticles.forEach(p => {
+                        // Skip particles when zoomed in for performance
+                        particleIndex++;
+                        if(particleIndex % particleSkip !== 0) return;
+                        
                         // Draw Head
                         this.ctx.fillStyle = '#bd00ff';
                         this.ctx.beginPath(); this.ctx.arc(p.x - this.cx, p.y - this.cy, 4, 0, Math.PI*2); this.ctx.fill();
@@ -2863,7 +2876,12 @@
                     });
                     
                     // DRAW COSMIC PARTICLES (beautiful gradient colors)
+                    particleIndex = 0;
                     Game.cosmicParticles.forEach(p => {
+                        // Skip particles when zoomed in for performance
+                        particleIndex++;
+                        if(particleIndex % particleSkip !== 0) return;
+                        
                         // Draw glowing head with gradient colors (blue to purple)
                         const gradient = this.ctx.createRadialGradient(p.x - this.cx, p.y - this.cy, 0, p.x - this.cx, p.y - this.cy, 8);
                         gradient.addColorStop(0, '#0ff');
@@ -3826,7 +3844,11 @@
                 let pending = 0;
                 const currentMax = Math.max(Game.maxEssenceReached || 0, Game.infinityPoints || 0);
                 if(currentMax >= 1e9) {
-                    pending = Math.floor(Math.log10(Math.max(1, currentMax / 1e9)) * 2.5);
+                    // Fix: Ensure at least 1 core if you have 1e9 or more
+                    const essenceRatio = currentMax / 1e9;
+                    if(essenceRatio >= 1) {
+                        pending = Math.max(1, Math.floor(Math.log10(essenceRatio) * 2.5) + 1);
+                    }
                 }
                 document.getElementById('singularity-pending').innerText = `+${Format(pending)} Void Cores`;
                 
