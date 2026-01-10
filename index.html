@@ -1963,9 +1963,14 @@
                         if(this.infUpgrades.void > 10) {
                             let autoGain = Math.pow(1.8, this.infUpgrades.void) * dt;
                             this.infinityPoints += autoGain;
-                            // Track gain for rate calculation
+                            // Track gain for rate calculation (void_auto doesn't have combo, so use 1.0)
                             this._essenceGainHistory = this._essenceGainHistory || [];
-                            this._essenceGainHistory.push({ amount: autoGain, time: performance.now(), source: 'void_auto' });
+                            this._essenceGainHistory.push({ 
+                                amount: autoGain, 
+                                time: performance.now(), 
+                                source: 'void_auto',
+                                combo: 1.0 // Auto-gain doesn't have combo
+                            });
                             // Keep only last 2 seconds
                             this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                         }
@@ -2005,9 +2010,14 @@
                                 const comboBoost = 1 + (this.blackHoleCombo || 0); // Click combo boost
                                 let voidGain = 1 * (this.eventEssenceMult || 1) * comboBoost;
                                 this.infinityPoints += voidGain;
-                                // Track gain for rate calculation
+                                // Track gain for rate calculation (include combo for scaling)
                                 this._essenceGainHistory = this._essenceGainHistory || [];
-                                this._essenceGainHistory.push({ amount: voidGain, time: performance.now(), source: 'void_particle' });
+                                this._essenceGainHistory.push({ 
+                                    amount: voidGain, 
+                                    time: performance.now(), 
+                                    source: 'void_particle',
+                                    combo: comboBoost // Track combo at time of gain
+                                });
                                 // Keep only last 2 seconds
                                 this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                                 UI.updateMainDisplay();
@@ -2071,9 +2081,14 @@
                                 const comboBoost = 1 + (this.blackHoleCombo || 0); // Click combo boost
                                 let cosmicGain = baseCosmicGain * exponentialMult * (this.eventEssenceMult || 1) * comboBoost;
                                 this.infinityPoints += cosmicGain;
-                                // Track gain for rate calculation
+                                // Track gain for rate calculation (include combo for scaling)
                                 this._essenceGainHistory = this._essenceGainHistory || [];
-                                this._essenceGainHistory.push({ amount: cosmicGain, time: performance.now(), source: 'cosmic_particle' });
+                                this._essenceGainHistory.push({ 
+                                    amount: cosmicGain, 
+                                    time: performance.now(), 
+                                    source: 'cosmic_particle',
+                                    combo: comboBoost // Track combo at time of gain
+                                });
                                 // Keep only last 2 seconds
                                 this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                                 UI.updateMainDisplay();
@@ -2989,23 +3004,36 @@
                 // Get current combo boost - this will be used to normalize tracked gains and calculate theoretical rates
                 const currentComboBoost = 1 + (Game.blackHoleCombo || 0);
                 
+                // Calculate average combo from tracked gains for scaling
+                let voidComboSum = 0;
+                let voidComboCount = 0;
+                let cosmicComboSum = 0;
+                let cosmicComboCount = 0;
+                
                 recentGains.forEach(h => {
                     if(h.source === 'void_particle' || h.source === 'void_auto') {
                         voidGains += h.amount;
+                        if(h.combo) {
+                            voidComboSum += h.combo;
+                            voidComboCount++;
+                        }
                     } else if(h.source === 'cosmic_particle') {
-                        // Note: cosmic gains already include combo from when earned
                         cosmicGains += h.amount;
+                        if(h.combo) {
+                            cosmicComboSum += h.combo;
+                            cosmicComboCount++;
+                        }
                     }
                     // Clicks are not counted in particle rates - only actual particles
                 });
                 
-                // Track the average combo boost from recent gains (for normalization)
-                // Since tracked gains have combo baked in, we need to estimate what combo they had
-                // For simplicity, apply current combo ratio - but better to use theoretical if particles exist
-                
-                // Calculate per second rates from tracked gains (these have old combo baked in)
+                // Calculate per second rates from tracked gains
                 let voidRateFromTracked = voidGains / timeWindow;
                 let cosmicRateFromTracked = cosmicGains / timeWindow;
+                
+                // Calculate average combo in tracked gains
+                const avgVoidComboInTracked = voidComboCount > 0 ? voidComboSum / voidComboCount : 1.0;
+                const avgCosmicComboInTracked = cosmicComboCount > 0 ? cosmicComboSum / cosmicComboCount : 1.0;
                 
                 // Also calculate theoretical rates based on particle counts and exponential gains
                 // These use CURRENT combo boost, so they update in real-time
@@ -3013,41 +3041,24 @@
                 const cosmicParticleCount = Game.cosmicParticles ? Game.cosmicParticles.length : 0;
                 const eventMult = Game.eventEssenceMult || 1;
                 
-                // Use tracked gains directly - they're the actual measured rates from last 2 seconds
-                // Tracked gains already include combo from when they were earned
-                // For immediate combo feedback, we'll estimate and scale, but tracked is most accurate
+                // Use tracked gains and scale by current combo to show real-time rates
+                // Tracked gains have combo baked in from when they were earned
+                // Scale them by current combo to show what rate you'd get NOW
                 
-                if(voidRateFromTracked > 10) {
-                    // We have significant tracked data - use it
-                    // To account for combo changes, estimate what combo produced this rate and scale
-                    // Tracked gains are from last 2 seconds, so combo might have changed
-                    // Estimate: what combo would give this rate?
-                    const baseRateNoCombo = voidParticleCount * 20 * 1 * eventMult; // ~20 absorptions/sec/particle
-                    if(baseRateNoCombo > 0) {
-                        const comboInTracked = Math.max(1.0, voidRateFromTracked / baseRateNoCombo);
-                        voidRate = voidRateFromTracked * (currentComboBoost / comboInTracked);
-                    } else {
-                        voidRate = voidRateFromTracked;
-                    }
+                if(voidRateFromTracked > 0) {
+                    // Scale tracked rate by current combo / average combo in tracked period
+                    // This gives you the rate you'd get NOW with current combo
+                    voidRate = voidRateFromTracked * (currentComboBoost / Math.max(1.0, avgVoidComboInTracked));
                 } else {
-                    // Little/no tracked data, use theoretical with current combo
+                    // No tracked data yet (just started), use theoretical estimate
                     voidRate = voidParticleCount * 20 * 1 * eventMult * currentComboBoost;
                 }
                 
-                if(cosmicRateFromTracked > 10) {
-                    // Use tracked cosmic gains
-                    const particleLevel = Game.infUpgrades.particles || 0;
-                    const baseCosmicGain = 5;
-                    const exponentialMult = Math.pow(1.5, particleLevel);
-                    const baseRateNoCombo = cosmicParticleCount * 40 * baseCosmicGain * exponentialMult * eventMult;
-                    if(baseRateNoCombo > 0) {
-                        const comboInTracked = Math.max(1.0, cosmicRateFromTracked / baseRateNoCombo);
-                        cosmicRate = cosmicRateFromTracked * (currentComboBoost / comboInTracked);
-                    } else {
-                        cosmicRate = cosmicRateFromTracked;
-                    }
+                if(cosmicRateFromTracked > 0) {
+                    // Scale tracked cosmic rate by current combo
+                    cosmicRate = cosmicRateFromTracked * (currentComboBoost / Math.max(1.0, avgCosmicComboInTracked));
                 } else {
-                    // Fallback to theoretical
+                    // No tracked data, use theoretical
                     const particleLevel = Game.infUpgrades.particles || 0;
                     const baseCosmicGain = 5;
                     const exponentialMult = Math.pow(1.5, particleLevel);
