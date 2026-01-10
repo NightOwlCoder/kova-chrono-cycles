@@ -2001,7 +2001,9 @@
                             p.x += (dx / dist) * voidSpeed * dt; 
                             p.y += (dy / dist) * voidSpeed * dt;
                             if(dist < 20) {
-                                let voidGain = 1 * (this.eventEssenceMult || 1);
+                                // Void particles gain essence with click combo boost
+                                const comboBoost = 1 + (this.blackHoleCombo || 0); // Click combo boost
+                                let voidGain = 1 * (this.eventEssenceMult || 1) * comboBoost;
                                 this.infinityPoints += voidGain;
                                 // Track gain for rate calculation
                                 this._essenceGainHistory = this._essenceGainHistory || [];
@@ -3007,8 +3009,9 @@
                 const cosmicParticleCount = Game.cosmicParticles ? Game.cosmicParticles.length : 0;
                 const eventMult = Game.eventEssenceMult || 1;
                 
-                // Void particles: 1 base, multiplied by event, absorbed ~once per 1-2 seconds
-                const voidTheoreticalRate = voidParticleCount * 0.8 * eventMult;
+                // Void particles: 1 base, multiplied by event and click combo, absorbed ~once per 1-2 seconds
+                const voidComboBoost = 1 + (Game.blackHoleCombo || 0); // Click combo boost
+                const voidTheoreticalRate = voidParticleCount * 0.8 * eventMult * voidComboBoost;
                 
                 // Cosmic particles: exponential gain based on upgrade level
                 const particleLevel = Game.infUpgrades.particles || 0;
