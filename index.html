@@ -926,7 +926,7 @@
 
             // CLICK COMBO
             clickCombo: 0,
-            layerClickCombo: new Array(10).fill(0), // Per-layer click combo
+            layerClickCombo: new Array(11).fill(0), // Per-layer click combo (0-9 for rings, 10 for reality ring)
             blackHoleCombo: 0, // Blackhole click combo 
             comboGrace: 0,
 
@@ -1010,13 +1010,16 @@
                     const realityRadius = (CONFIG.baseRadius + 90); // Same as drawRealityRings
                     if(Math.abs(dist - realityRadius) < 25) {
                         // Clicked on Reality ring - add torque with click combo
-                        this.clickCombo += 0.005; 
-                        let maxCombo = 0.5 + (this.infUpgrades.weave * 0.05); 
-                        if(this.clickCombo > maxCombo) this.clickCombo = maxCombo; 
-                        this.comboGrace = 0.25;
+                        // Use layer combo index 10 for reality ring
+                        this.layerClickCombo = this.layerClickCombo || new Array(11).fill(0);
+                        this.layerClickCombo[10] = (this.layerClickCombo[10] || 0) + 0.005;
+                        let maxCombo = 0.5 + (this.infUpgrades.weave * 0.05);
+                        if(this.layerClickCombo[10] > maxCombo) this.layerClickCombo[10] = maxCombo;
+                        this.layerComboGrace = this.layerComboGrace || new Array(11).fill(0);
+                        this.layerComboGrace[10] = 0.25;
                         
                         const baseTorque = CONFIG.clickTorque * 0.3; // 30% of normal click torque
-                        const comboBoost = 1 + this.clickCombo;
+                        const comboBoost = 1 + this.layerClickCombo[10];
                         const realityTorque = baseTorque * comboBoost;
                         
                         if(this.reality.rings[0]) {
@@ -1036,10 +1039,11 @@
                     let base = (layerIdx === 0) ? CONFIG.redTorque : CONFIG.clickTorque;
                     
                     // Per-layer click combo (only for this specific ring)
+                    this.layerClickCombo = this.layerClickCombo || new Array(11).fill(0);
                     this.layerClickCombo[layerIdx] = (this.layerClickCombo[layerIdx] || 0) + 0.005; 
                     let maxCombo = 0.5 + (this.infUpgrades.weave * 0.05); 
                     if(this.layerClickCombo[layerIdx] > maxCombo) this.layerClickCombo[layerIdx] = maxCombo; 
-                    this.layerComboGrace = this.layerComboGrace || new Array(10).fill(0);
+                    this.layerComboGrace = this.layerComboGrace || new Array(11).fill(0);
                     this.layerComboGrace[layerIdx] = 0.25; 
                     
                     const layerComboBoost = 1 + this.layerClickCombo[layerIdx];
@@ -1482,8 +1486,17 @@
                     document.getElementById('forge-open-btn').style.display = 'none';
                     document.getElementById('challenges-open-btn').style.display = 'none';
                     document.getElementById('profile-btn').style.display = 'block';
+                    document.getElementById('click-combo-container').style.display = 'block';
                     document.getElementById('game-title').innerText = "CHRONO ENGINE";
                     document.getElementById('game-title').style.color = "#fff";
+                    
+                    // Show buttons if unlocked
+                    if(this.unlockedLayers >= 10 || (this.infinityPoints >= 1e12 || this.artifacts.prism)) {
+                        document.getElementById('warp-btn').style.display = 'block';
+                    }
+                    if(this.infinityPoints >= 1e12 || this.artifacts.prism) {
+                        document.getElementById('reality-btn').style.display = 'block';
+                    }
                     
                     // Reset camera
                     Renderer.cameraX = 0;
@@ -1497,6 +1510,7 @@
                     UI.buildProfileMenu();
                     UI.updateChallengeInfo();
                     UI.updateDimensionUI();
+                    UI.updateComboUI();
                     
                     flash.style.backgroundColor = '#000';
                     flash.style.opacity = 0;
@@ -1744,9 +1758,9 @@
                 try {
                     this.runAutoBuy();
 
-                    // CLICK COMBO DECAY (per-layer)
-                    this.layerComboGrace = this.layerComboGrace || new Array(10).fill(0);
-                    for(let i = 0; i < 10; i++) {
+                    // CLICK COMBO DECAY (per-layer, including reality ring index 10)
+                    this.layerComboGrace = this.layerComboGrace || new Array(11).fill(0);
+                    for(let i = 0; i < 11; i++) {
                         if(this.layerComboGrace[i] > 0) {
                             this.layerComboGrace[i] -= dt;
                         } else if((this.layerClickCombo[i] || 0) > 0 && !this.artifacts.anchor) {
@@ -2644,19 +2658,26 @@
                         document.getElementById('click-combo-container').style.opacity = 0;
                     }
                 } else {
-                    // Rings combo - find highest layer combo
+                    // Rings combo (dimension 0) or Reality combo (dimension 2) - find highest layer combo
                     let maxCombo = 0;
                     let maxIdx = -1;
-                    Game.layerClickCombo = Game.layerClickCombo || new Array(10).fill(0);
-                    for(let i = 0; i < 10; i++) {
+                    Game.layerClickCombo = Game.layerClickCombo || new Array(11).fill(0); // 11 to include reality ring (index 10)
+                    
+                    // Check all layers including reality ring (index 10)
+                    for(let i = 0; i < 11; i++) {
                         if((Game.layerClickCombo[i] || 0) > maxCombo) {
                             maxCombo = Game.layerClickCombo[i];
                             maxIdx = i;
                         }
                     }
+                    
                     if(maxCombo > 0) {
                         document.getElementById('click-combo-container').style.opacity = 1;
-                        document.getElementById('combo-text').innerText = `CLICK COMBO: +${(maxCombo * 100).toFixed(1)}%`;
+                        if(maxIdx === 10) {
+                            document.getElementById('combo-text').innerText = `REALITY COMBO: +${(maxCombo * 100).toFixed(1)}%`;
+                        } else {
+                            document.getElementById('combo-text').innerText = `CLICK COMBO: +${(maxCombo * 100).toFixed(1)}%`;
+                        }
                         const maxComboVal = 0.5 + (Game.infUpgrades.weave * 0.05);
                         document.getElementById('combo-fill').style.width = (maxCombo / maxComboVal * 100) + "%";
                     } else {
