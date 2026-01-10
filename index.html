@@ -673,7 +673,7 @@
         <div class="lore-text" id="lore-content">Initializing...</div>
     </div>
 
-    <div id="particle-info" style="position:fixed; top:80px; left:20px; background:rgba(0,0,0,0.7); border:1px solid #bd00ff; padding:10px; border-radius:5px; z-index:50; display:none; color:#fff; font-family:'Share Tech Mono'; font-size:0.8rem;">
+    <div id="particle-info" style="position:fixed; top:80px; left:20px; background:rgba(0,0,0,0.7); border:1px solid #bd00ff; padding:10px; border-radius:5px; z-index:50; display:none; color:#fff; font-family:'Share Tech Mono'; font-size:0.8rem; cursor:move; user-select:none;">
         <div style="color:#bd00ff; font-weight:bold; margin-bottom:5px;">PARTICLE RATES</div>
         <div id="void-particle-rate" style="color:#bd00ff;">Void: +0/s</div>
         <div id="cosmic-particle-rate" style="color:#0ff; margin-top:3px;">Cosmic: +0/s</div>
@@ -1023,7 +1023,8 @@
                         // Use layer combo index 10 for reality ring
                         this.layerClickCombo = this.layerClickCombo || new Array(11).fill(0);
                         this.layerClickCombo[10] = (this.layerClickCombo[10] || 0) + 0.005;
-                        let maxCombo = 0.5 + (this.infUpgrades.weave * 0.05);
+                        // Reality ring combo - doesn't use Event Horizon (that's for blackhole)
+                        let maxCombo = 0.5;
                         if(this.layerClickCombo[10] > maxCombo) this.layerClickCombo[10] = maxCombo;
                         this.layerComboGrace = this.layerComboGrace || new Array(11).fill(0);
                         this.layerComboGrace[10] = 0.25;
@@ -1051,7 +1052,8 @@
                     // Per-layer click combo (only for this specific ring)
                     this.layerClickCombo = this.layerClickCombo || new Array(11).fill(0);
                     this.layerClickCombo[layerIdx] = (this.layerClickCombo[layerIdx] || 0) + 0.005; 
-                    let maxCombo = 0.5 + (this.infUpgrades.weave * 0.05); 
+                    // Ring combos - don't use Event Horizon (that's for blackhole)
+                    let maxCombo = 0.5; 
                     if(this.layerClickCombo[layerIdx] > maxCombo) this.layerClickCombo[layerIdx] = maxCombo; 
                     this.layerComboGrace = this.layerComboGrace || new Array(11).fill(0);
                     this.layerComboGrace[layerIdx] = 0.25; 
@@ -1083,9 +1085,9 @@
                 const dx = worldX; const dy = worldY;
                 const dist = Math.sqrt(dx*dx + dy*dy);
                 if(dist < this.blackHoleSize + 20) {
-                    // Click combo for blackhole (up to 50%)
+                    // Click combo for blackhole - max increases with Event Horizon upgrade
                     this.blackHoleCombo = (this.blackHoleCombo || 0) + 0.005;
-                    const maxCombo = 0.5;
+                    const maxCombo = 0.5 + (this.infUpgrades.weave * 0.05); // Event Horizon increases blackhole combo max
                     if(this.blackHoleCombo > maxCombo) this.blackHoleCombo = maxCombo;
                     this.blackHoleComboGrace = 0.25;
                     
@@ -1963,10 +1965,13 @@
                                 // Keep only last 2 seconds
                                 this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                                 UI.updateMainDisplay();
+                                // Respawn with random position to keep particles desynced
                                 let ang = Math.random() * Math.PI * 2;
                                 let r = Math.max(window.innerWidth, window.innerHeight)/1.5;
-                                p.x = (window.innerWidth/2) + Math.cos(ang)*r;
-                                p.y = (window.innerHeight/2) + Math.sin(ang)*r;
+                                const offsetX = (Math.random() - 0.5) * 200;
+                                const offsetY = (Math.random() - 0.5) * 200;
+                                p.x = (window.innerWidth/2) + Math.cos(ang)*r + offsetX;
+                                p.y = (window.innerHeight/2) + Math.sin(ang)*r + offsetY;
                                 p.history = [];
                             }
                             p.history.push({x: p.x, y: p.y});
@@ -2450,8 +2455,12 @@
             spawnVoidParticle() {
                 const ang = Math.random() * Math.PI * 2;
                 const r = Math.max(window.innerWidth, window.innerHeight) / 1.5;
+                // Randomize starting position to desync particles visually
+                const offsetX = (Math.random() - 0.5) * 200;
+                const offsetY = (Math.random() - 0.5) * 200;
                 Game.voidParticles.push({
-                    x: this.cx + Math.cos(ang)*r, y: this.cy + Math.sin(ang)*r,
+                    x: this.cx + Math.cos(ang)*r + offsetX, 
+                    y: this.cy + Math.sin(ang)*r + offsetY,
                     history: [] // Added History for trails
                 });
             },
@@ -2825,7 +2834,7 @@
                     if(Game.blackHoleCombo > 0) {
                         document.getElementById('click-combo-container').style.opacity = 1;
                         document.getElementById('combo-text').innerText = `BLACKHOLE COMBO: +${(Game.blackHoleCombo * 100).toFixed(1)}%`;
-                        const maxCombo = 0.5;
+                        const maxCombo = 0.5 + (Game.infUpgrades.weave * 0.05); // Event Horizon increases max
                         document.getElementById('combo-fill').style.width = (Game.blackHoleCombo / maxCombo * 100) + "%";
                     } else {
                         document.getElementById('click-combo-container').style.opacity = 0;
@@ -2851,7 +2860,8 @@
                         } else {
                             document.getElementById('combo-text').innerText = `CLICK COMBO: +${(maxCombo * 100).toFixed(1)}%`;
                         }
-                        const maxComboVal = 0.5 + (Game.infUpgrades.weave * 0.05);
+                        // Ring combos max is 50%, doesn't use Event Horizon (that's for blackhole)
+                        const maxComboVal = 0.5;
                         document.getElementById('combo-fill').style.width = (maxCombo / maxComboVal * 100) + "%";
                     } else {
                         document.getElementById('click-combo-container').style.opacity = 0;
@@ -2926,17 +2936,17 @@
                         voidGains += h.amount;
                     } else if(h.source === 'cosmic_particle') {
                         cosmicGains += h.amount;
-                    } else {
-                        // Clicks - could be either, but usually smaller amounts relative to particles
-                        // Just add to void for now (or we could split it)
-                        voidGains += h.amount * 0.3;
-                        cosmicGains += h.amount * 0.7;
                     }
+                    // Clicks are not counted in particle rates - only actual particles
                 });
                 
                 // Calculate per second rates
                 let voidRate = voidGains / timeWindow;
                 let cosmicRate = cosmicGains / timeWindow;
+                
+                // Ensure rates are valid numbers
+                if(isNaN(voidRate) || !isFinite(voidRate)) voidRate = 0;
+                if(isNaN(cosmicRate) || !isFinite(cosmicRate)) cosmicRate = 0;
                 
                 // Show separate rates
                 document.getElementById('void-particle-rate').innerText = `Void Particles: +${Format(voidRate)}/s`;
@@ -3067,6 +3077,7 @@
                 let cost1 = level < 10 ? (10 * Math.pow(1.5, level)) : (10 * Math.pow(1.5, 10) * Math.pow(3.0, level - 10));
                 const card1 = document.createElement('div'); card1.className = 'upgrade-card';
                 card1.style.borderColor = '#bd00ff';
+                card1.dataset.cost = cost1; // Store cost for button state checking
                 card1.innerHTML = `<div class="u-info"><span class="u-name">Void Siphon</span><span class="u-desc">Absorb background radiation. 1 Particle per level.</span></div><div class="u-meta"><span class="u-cost">${Format(cost1)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.void}</span></div>`;
                 if(Game.infinityPoints < cost1) {
                     card1.classList.add('locked');
@@ -3090,7 +3101,8 @@
                 let cost2 = 50 * Math.pow(2.0, Game.infUpgrades.weave);
                 const card2 = document.createElement('div'); card2.className = 'upgrade-card';
                 card2.style.borderColor = '#bd00ff';
-                card2.innerHTML = `<div class="u-info"><span class="u-name">Event Horizon</span><span class="u-desc">Strengthens the singularity. Click Combo Max +5%</span></div><div class="u-meta"><span class="u-cost">${Format(cost2)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.weave}</span></div>`;
+                card2.dataset.cost = cost2; // Store cost for button state checking
+                card2.innerHTML = `<div class="u-info"><span class="u-name">Event Horizon</span><span class="u-desc">Strengthens the singularity. Blackhole Click Combo Max +5%</span></div><div class="u-meta"><span class="u-cost">${Format(cost2)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.weave}</span></div>`;
                 if(Game.infinityPoints < cost2) {
                     card2.classList.add('locked');
                     card2.style.pointerEvents = 'none';
@@ -3114,14 +3126,15 @@
                 let cost3 = 100 * Math.pow(2.5, Game.infUpgrades.particles || 0);
                 const card3 = document.createElement('div'); card3.className = 'upgrade-card';
                 card3.style.borderColor = '#0ff';
+                card3.dataset.cost = cost3; // Store cost for button state checking
                 card3.innerHTML = `<div class="u-info"><span class="u-name">Cosmic Particles</span><span class="u-desc">Beautiful particles that spiral into the blackhole. ${Game.infUpgrades.particles || 0} particles active.</span></div><div class="u-meta"><span class="u-cost">${Format(cost3)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.particles || 0}</span></div>`;
-                    if(Game.infinityPoints < cost3) {
-                        card3.classList.add('locked');
-                        card3.style.pointerEvents = 'none';
-                    } else {
-                        card3.classList.remove('locked');
-                        card3.style.pointerEvents = 'auto';
-                    }
+                if(Game.infinityPoints < cost3) {
+                    card3.classList.add('locked');
+                    card3.style.pointerEvents = 'none';
+                } else {
+                    card3.classList.remove('locked');
+                    card3.style.pointerEvents = 'auto';
+                }
                 card3.onclick = (e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -3139,15 +3152,16 @@
                 let cost4 = 500 * Math.pow(2.0, Game.infUpgrades.clickGain || 0);
                 const card4 = document.createElement('div'); card4.className = 'upgrade-card';
                 card4.style.borderColor = '#ff6b9d';
+                card4.dataset.cost = cost4; // Store cost for button state checking
                 let clickMult = Game.infUpgrades.clickGain || 0;
                 card4.innerHTML = `<div class="u-info"><span class="u-name">Quantum Amplifier</span><span class="u-desc">Increases Essence gained per blackhole click. x${(Math.pow(1.5, clickMult)).toFixed(2)} multiplier.</span></div><div class="u-meta"><span class="u-cost">${Format(cost4)} Essence</span><span class="u-lvl">LVL ${clickMult}</span></div>`;
-                    if(Game.infinityPoints < cost4) {
-                        card4.classList.add('locked');
-                        card4.style.pointerEvents = 'none';
-                    } else {
-                        card4.classList.remove('locked');
-                        card4.style.pointerEvents = 'auto';
-                    }
+                if(Game.infinityPoints < cost4) {
+                    card4.classList.add('locked');
+                    card4.style.pointerEvents = 'none';
+                } else {
+                    card4.classList.remove('locked');
+                    card4.style.pointerEvents = 'auto';
+                }
                 card4.onclick = (e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -3486,17 +3500,13 @@
                 
                 const cards = document.querySelectorAll('#upgrades .upgrade-card');
                 cards.forEach(card => {
-                    const costText = card.querySelector('.u-cost');
-                    if(!costText) return;
+                    // Use stored cost from dataset if available, otherwise try to parse
+                    const cost = card.dataset.cost ? parseFloat(card.dataset.cost) : 0;
                     
-                    // Extract cost from text (remove " Essence" and parse)
-                    const costStr = costText.innerText.replace(/,/g, '').replace(/ Essence/g, '');
-                    const cost = parseFloat(costStr) || 0;
-                    
-                    if(Game.infinityPoints >= cost) {
+                    if(cost > 0 && Game.infinityPoints >= cost) {
                         card.classList.remove('locked');
                         card.style.pointerEvents = 'auto';
-                    } else {
+                    } else if(cost > 0) {
                         card.classList.add('locked');
                         card.style.pointerEvents = 'none';
                     }
