@@ -1995,7 +1995,10 @@
                             let dx = (window.innerWidth/2) - p.x;
                             let dy = (window.innerHeight/2) - p.y;
                             let dist = Math.sqrt(dx*dx + dy*dy);
-                            p.x += dx * 0.02; p.y += dy * 0.02;
+                            // Frame-rate independent movement - pixels per second
+                            const voidSpeed = 2.4; // pixels per second (original was 0.02 * 60fps * 2 = 2.4)
+                            p.x += (dx / dist) * voidSpeed * dt; 
+                            p.y += (dy / dist) * voidSpeed * dt;
                             if(dist < 20) {
                                 let voidGain = 1 * (this.eventEssenceMult || 1);
                                 this.infinityPoints += voidGain;
@@ -2044,13 +2047,15 @@
                             let angleToCenter = Math.atan2(dy, dx);
                             let tangentialAngle = angleToCenter + Math.PI / 2; // Perpendicular to radius
                             
-                            // Orbital velocity (faster as it gets closer) - 5x faster speeds
-                            let orbitalSpeed = (20 + (1 - dist / (Math.max(window.innerWidth, window.innerHeight) / 2)) * 30) * 5;
-                            let radialSpeed = 12 * 5; // Inward pull - 5x faster
+                            // Orbital velocity (faster as it gets closer) - frame-rate independent
+                            // Speeds converted to pixels per second and multiplied by dt
+                            const maxDist = Math.max(window.innerWidth, window.innerHeight) / 2;
+                            let orbitalSpeedPerSec = ((20 + (1 - dist / maxDist) * 30) * 5 * 0.08) * 60; // Convert from per-frame to per-second
+                            let radialSpeedPerSec = (12 * 5 * 0.06) * 60; // Inward pull - 5x faster, converted to per-second
                             
-                            // Combine orbital and radial motion - faster multipliers
-                            p.x += Math.cos(tangentialAngle) * orbitalSpeed * 0.08 + Math.cos(angleToCenter) * radialSpeed * 0.06;
-                            p.y += Math.sin(tangentialAngle) * orbitalSpeed * 0.08 + Math.sin(angleToCenter) * radialSpeed * 0.06;
+                            // Combine orbital and radial motion - frame-rate independent
+                            p.x += (Math.cos(tangentialAngle) * orbitalSpeedPerSec + Math.cos(angleToCenter) * radialSpeedPerSec) * dt;
+                            p.y += (Math.sin(tangentialAngle) * orbitalSpeedPerSec + Math.sin(angleToCenter) * radialSpeedPerSec) * dt;
                             
                             if(dist < this.blackHoleSize + 10) {
                                 // Particle absorbed - give exponential essence based on upgrade level
@@ -2058,7 +2063,8 @@
                                 const particleLevel = this.infUpgrades.particles || 0;
                                 const baseCosmicGain = 5;
                                 const exponentialMult = Math.pow(1.5, particleLevel); // 1.5x per level
-                                let cosmicGain = baseCosmicGain * exponentialMult * (this.eventEssenceMult || 1);
+                                const comboBoost = 1 + (this.blackHoleCombo || 0); // Click combo boost
+                                let cosmicGain = baseCosmicGain * exponentialMult * (this.eventEssenceMult || 1) * comboBoost;
                                 this.infinityPoints += cosmicGain;
                                 // Track gain for rate calculation
                                 this._essenceGainHistory = this._essenceGainHistory || [];
@@ -2975,10 +2981,14 @@
                 let voidGains = 0;
                 let cosmicGains = 0;
                 
+                // Get current combo boost for rate calculations
+                const currentComboBoost = 1 + (Game.blackHoleCombo || 0);
+                
                 recentGains.forEach(h => {
                     if(h.source === 'void_particle' || h.source === 'void_auto') {
                         voidGains += h.amount;
                     } else if(h.source === 'cosmic_particle') {
+                        // Note: cosmic gains already include combo from when earned
                         cosmicGains += h.amount;
                     }
                     // Clicks are not counted in particle rates - only actual particles
@@ -3001,7 +3011,8 @@
                 const particleLevel = Game.infUpgrades.particles || 0;
                 const baseCosmicGain = 5;
                 const exponentialMult = Math.pow(1.5, particleLevel); // 1.5x per level
-                const cosmicGainPerAbsorption = baseCosmicGain * exponentialMult * eventMult;
+                const comboBoost = 1 + (Game.blackHoleCombo || 0); // Click combo boost
+                const cosmicGainPerAbsorption = baseCosmicGain * exponentialMult * eventMult * comboBoost;
                 // Cosmic particles move 5x faster, so absorb ~5x as often
                 const cosmicTheoreticalRate = cosmicParticleCount * cosmicGainPerAbsorption * 5;
                 
