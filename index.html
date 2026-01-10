@@ -607,6 +607,33 @@
             <button class="forge-btn" id="forge-btn-chart" onclick="Game.buyArtifact('chart')">FORGE</button>
         </div>
 
+        <div class="forge-item">
+            <div>
+                <div style="color:#fff; font-weight:bold; font-size:0.9rem;">VOID CRYSTAL</div>
+                <div style="color:#aaa; font-size:0.7rem;">Void particles spawn 2x faster</div>
+                <div style="color:#666; font-size:0.7rem;">5T Biomass + 50M Essence</div>
+            </div>
+            <button class="forge-btn" id="forge-btn-crystal" onclick="Game.buyArtifact('crystal')">FORGE</button>
+        </div>
+
+        <div class="forge-item">
+            <div>
+                <div style="color:#fff; font-weight:bold; font-size:0.9rem;">CHRONON AMPLIFIER</div>
+                <div style="color:#aaa; font-size:0.7rem;">Chronon boost +25%</div>
+                <div style="color:#666; font-size:0.7rem;">10T Aether + 100M Essence</div>
+            </div>
+            <button class="forge-btn" id="forge-btn-amplifier" onclick="Game.buyArtifact('amplifier')">FORGE</button>
+        </div>
+
+        <div class="forge-item">
+            <div>
+                <div style="color:#fff; font-weight:bold; font-size:0.9rem;">INFINITY LOOP</div>
+                <div style="color:#aaa; font-size:0.7rem;">Auto-buy upgrades 2x faster</div>
+                <div style="color:#666; font-size:0.7rem;">50T Dark Matter + 500M Essence</div>
+            </div>
+            <button class="forge-btn" id="forge-btn-loop" onclick="Game.buyArtifact('loop')">FORGE</button>
+        </div>
+
         <button class="toggle-btn" onclick="document.getElementById('forge-modal').classList.remove('open')">CLOSE</button>
     </div>
 
@@ -635,6 +662,12 @@
     <div id="lore-box">
         <div class="lore-title">System Log</div>
         <div class="lore-text" id="lore-content">Initializing...</div>
+    </div>
+
+    <div id="particle-info" style="position:fixed; top:80px; left:20px; background:rgba(0,0,0,0.7); border:1px solid #bd00ff; padding:10px; border-radius:5px; z-index:50; display:none; color:#fff; font-family:'Share Tech Mono'; font-size:0.8rem;">
+        <div style="color:#bd00ff; font-weight:bold; margin-bottom:5px;">PARTICLE RATES</div>
+        <div id="void-particle-rate" style="color:#bd00ff;">Void: +0/s</div>
+        <div id="cosmic-particle-rate" style="color:#0ff; margin-top:3px;">Cosmic: +0/s</div>
     </div>
     
     <button id="manual-btn" onclick="document.getElementById('manual-modal').classList.add('open')">📖</button>
@@ -1043,8 +1076,8 @@
                     this.blackHoleComboGrace = 0.25;
                     
                     const comboBoost = 1 + this.blackHoleCombo;
-                    const baseGain = 1 + (this.infUpgrades.clickGain || 0); // Infinity upgrade
-                    const totalGain = baseGain * comboBoost;
+                    const clickMult = 1 + ((this.infUpgrades.clickGain || 0) * 0.5); // Infinity upgrade (multiplier, +50% per level)
+                    const totalGain = 1 * clickMult * comboBoost;
                     
                     this.blackHoleMass += 1;
                     // Grow slower: use log base 1.5, and increase max size to 5x (6750 instead of 1350)
@@ -1054,6 +1087,7 @@
                     }
                     this.infinityPoints += totalGain; 
                     UI.spawnText(`+${totalGain.toFixed(1)} Essence`, 0, true, 'blue-purple');
+                    UI.spawnComboText(`+${(this.blackHoleCombo * 100).toFixed(1)}%`, e.clientX, e.clientY);
                     Renderer.clickEffect(e.clientX, e.clientY, '#bd00ff');
                     UI.updateMainDisplay();
                     UI.updateComboUI();
@@ -1151,6 +1185,7 @@
                     document.getElementById('circle-ui-group').style.display = 'block';
                     document.querySelector('.currency-select').style.pointerEvents = "auto";
                     document.getElementById('forge-open-btn').style.display = 'none';
+                    document.getElementById('particle-info').style.display = 'none';
                     document.getElementById('game-title').innerText = "CHRONO ENGINE";
                     document.getElementById('game-title').style.color = "#fff";
                     
@@ -1619,7 +1654,9 @@
                     document.getElementById('main-display-name').innerText = "INFINITY ESSENCE";
                     document.getElementById('main-display-name').style.color = "#bd00ff";
                     document.getElementById('main-display-val').style.color = "#bd00ff";
+                    document.getElementById('particle-info').style.display = 'block';
                     UI.buildInfinityUpgrades();
+                    UI.updateParticleRates();
                 } else if(dim === 2) {
                     // Reality
                     document.getElementById('return-btn').style.display = 'block';
@@ -1779,14 +1816,18 @@
                             let dx = (window.innerWidth/2) - p.x;
                             let dy = (window.innerHeight/2) - p.y;
                             let dist = Math.sqrt(dx*dx + dy*dy);
-                            let angle = Math.atan2(dy, dx);
-                            p.x += Math.cos(angle) * p.speed * 3;
-                            p.y += Math.sin(angle) * p.speed * 3;
                             
-                            // Spiral effect
-                            p.angle += 0.1;
-                            p.x += Math.cos(p.angle) * 0.5;
-                            p.y += Math.sin(p.angle) * 0.5;
+                            // Spiral around blackhole - orbital mechanics
+                            let angleToCenter = Math.atan2(dy, dx);
+                            let tangentialAngle = angleToCenter + Math.PI / 2; // Perpendicular to radius
+                            
+                            // Orbital velocity (faster as it gets closer)
+                            let orbitalSpeed = 8 + (1 - dist / (Math.max(window.innerWidth, window.innerHeight) / 2)) * 12;
+                            let radialSpeed = 4; // Inward pull
+                            
+                            // Combine orbital and radial motion
+                            p.x += Math.cos(tangentialAngle) * orbitalSpeed * 0.05 + Math.cos(angleToCenter) * radialSpeed * 0.02;
+                            p.y += Math.sin(tangentialAngle) * orbitalSpeed * 0.05 + Math.sin(angleToCenter) * radialSpeed * 0.02;
                             
                             if(dist < this.blackHoleSize + 10) {
                                 // Particle absorbed, respawn
@@ -1797,7 +1838,7 @@
                                 p.history = [];
                             }
                             p.history.push({x: p.x, y: p.y});
-                            if(p.history.length > 15) p.history.shift();
+                            if(p.history.length > 8) p.history.shift(); // Shorter trail
                         });
                         
                         // Constellation Passive Boost
@@ -2583,14 +2624,55 @@
             },
             updateComboUI() {
                 // Show combo in all dimensions (including Reality)
-                if(Game.clickCombo > 0) {
-                    document.getElementById('click-combo-container').style.opacity = 1;
-                    document.getElementById('combo-text').innerText = `CLICK COMBO: +${(Game.clickCombo * 100).toFixed(1)}%`;
-                    const maxCombo = 0.5 + (Game.infUpgrades.weave * 0.05);
-                    document.getElementById('combo-fill').style.width = (Game.clickCombo / maxCombo * 100) + "%";
+                if(Game.dimension === 1) {
+                    // Infinity dimension - show blackhole combo
+                    if(Game.blackHoleCombo > 0) {
+                        document.getElementById('click-combo-container').style.opacity = 1;
+                        document.getElementById('combo-text').innerText = `BLACKHOLE COMBO: +${(Game.blackHoleCombo * 100).toFixed(1)}%`;
+                        const maxCombo = 0.5;
+                        document.getElementById('combo-fill').style.width = (Game.blackHoleCombo / maxCombo * 100) + "%";
+                    } else {
+                        document.getElementById('click-combo-container').style.opacity = 0;
+                    }
                 } else {
-                    document.getElementById('click-combo-container').style.opacity = 0;
+                    // Rings combo - find highest layer combo
+                    let maxCombo = 0;
+                    let maxIdx = -1;
+                    Game.layerClickCombo = Game.layerClickCombo || new Array(10).fill(0);
+                    for(let i = 0; i < 10; i++) {
+                        if((Game.layerClickCombo[i] || 0) > maxCombo) {
+                            maxCombo = Game.layerClickCombo[i];
+                            maxIdx = i;
+                        }
+                    }
+                    if(maxCombo > 0) {
+                        document.getElementById('click-combo-container').style.opacity = 1;
+                        document.getElementById('combo-text').innerText = `CLICK COMBO: +${(maxCombo * 100).toFixed(1)}%`;
+                        const maxComboVal = 0.5 + (Game.infUpgrades.weave * 0.05);
+                        document.getElementById('combo-fill').style.width = (maxCombo / maxComboVal * 100) + "%";
+                    } else {
+                        document.getElementById('click-combo-container').style.opacity = 0;
+                    }
                 }
+            },
+            updateParticleRates() {
+                if(Game.dimension !== 1) {
+                    const particleInfo = document.getElementById('particle-info');
+                    if(particleInfo) particleInfo.style.display = 'none';
+                    return;
+                }
+                
+                const particleInfo = document.getElementById('particle-info');
+                if(!particleInfo) return;
+                particleInfo.style.display = 'block';
+                
+                // Calculate void particle rate (1 per particle per second, with artifact multiplier)
+                let voidRate = (Game.voidParticles ? Game.voidParticles.length : 0) * (Game.artifacts && Game.artifacts.crystal ? 2 : 1);
+                // Cosmic particles don't give essence directly, but show their count
+                let cosmicCount = (Game.cosmicParticles ? Game.cosmicParticles.length : 0);
+                
+                document.getElementById('void-particle-rate').innerText = `Void: +${Format(voidRate)}/s`;
+                document.getElementById('cosmic-particle-rate').innerText = `Cosmic: ${cosmicCount} active`;
             },
             spawnComboText(text, x, y) {
                 const el = document.createElement('div');
@@ -2718,6 +2800,10 @@
                 const card1 = document.createElement('div'); card1.className = 'upgrade-card';
                 card1.style.borderColor = '#bd00ff';
                 card1.innerHTML = `<div class="u-info"><span class="u-name">Void Siphon</span><span class="u-desc">Absorb background radiation. 1 Particle per level.</span></div><div class="u-meta"><span class="u-cost">${Format(cost1)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.void}</span></div>`;
+                if(Game.infinityPoints < cost1) {
+                    card1.classList.add('locked');
+                    card1.style.pointerEvents = 'none';
+                }
                 card1.onclick = () => {
                     if(Game.infinityPoints >= cost1) { Game.infinityPoints -= cost1; Game.infUpgrades.void++; UI.updateMainDisplay(); UI.buildInfinityUpgrades(); }
                 };
@@ -2727,6 +2813,10 @@
                 const card2 = document.createElement('div'); card2.className = 'upgrade-card';
                 card2.style.borderColor = '#bd00ff';
                 card2.innerHTML = `<div class="u-info"><span class="u-name">Event Horizon</span><span class="u-desc">Strengthens the singularity. Click Combo Max +5%</span></div><div class="u-meta"><span class="u-cost">${Format(cost2)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.weave}</span></div>`;
+                if(Game.infinityPoints < cost2) {
+                    card2.classList.add('locked');
+                    card2.style.pointerEvents = 'none';
+                }
                 card2.onclick = () => {
                     if(Game.infinityPoints >= cost2) { Game.infinityPoints -= cost2; Game.infUpgrades.weave++; UI.updateMainDisplay(); UI.buildInfinityUpgrades(); }
                 };
@@ -2738,6 +2828,10 @@
                     const card3 = document.createElement('div'); card3.className = 'upgrade-card';
                     card3.style.borderColor = '#0ff';
                     card3.innerHTML = `<div class="u-info"><span class="u-name">Cosmic Particles</span><span class="u-desc">Beautiful particles that spiral into the blackhole. ${Game.infUpgrades.particles} particles active.</span></div><div class="u-meta"><span class="u-cost">${Format(cost3)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.particles}</span></div>`;
+                    if(Game.infinityPoints < cost3) {
+                        card3.classList.add('locked');
+                        card3.style.pointerEvents = 'none';
+                    }
                     card3.onclick = () => {
                         if(Game.infinityPoints >= cost3) { 
                             Game.infinityPoints -= cost3; 
@@ -2754,7 +2848,12 @@
                     let cost4 = 500 * Math.pow(2.0, Game.infUpgrades.clickGain || 0);
                     const card4 = document.createElement('div'); card4.className = 'upgrade-card';
                     card4.style.borderColor = '#ff6b9d';
-                    card4.innerHTML = `<div class="u-info"><span class="u-name">Quantum Amplifier</span><span class="u-desc">Increases Essence gained per blackhole click. +${(Game.infUpgrades.clickGain || 0)} per click.</span></div><div class="u-meta"><span class="u-cost">${Format(cost4)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.clickGain || 0}</span></div>`;
+                    let clickMult = Game.infUpgrades.clickGain || 0;
+                    card4.innerHTML = `<div class="u-info"><span class="u-name">Quantum Amplifier</span><span class="u-desc">Increases Essence gained per blackhole click. x${(1 + clickMult * 0.5).toFixed(2)} multiplier.</span></div><div class="u-meta"><span class="u-cost">${Format(cost4)} Essence</span><span class="u-lvl">LVL ${clickMult}</span></div>`;
+                    if(Game.infinityPoints < cost4) {
+                        card4.classList.add('locked');
+                        card4.style.pointerEvents = 'none';
+                    }
                     card4.onclick = () => {
                         if(Game.infinityPoints >= cost4) { 
                             Game.infinityPoints -= cost4; 
@@ -3086,6 +3185,7 @@
             updateMainDisplay() {
                 if(Game.dimension === 1) {
                     document.getElementById('main-display-val').innerText = Format(Game.infinityPoints);
+                    this.updateParticleRates();
                     return;
                 }
                 const idx = Game.selectedRes; 
