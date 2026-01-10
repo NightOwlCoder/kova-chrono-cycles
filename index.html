@@ -945,7 +945,8 @@
             // INFINITY STATE
             blackHoleSize: 10, blackHoleMass: 0, infUpgrades: { weave: 0, void: 0, particles: 0, clickGain: 0 },
             cosmicParticles: [],
-            voidParticles: [], 
+            voidParticles: [],
+            _essenceGainHistory: [], // Track essence gains for rate calculation 
 
             // OFFLINE PROGRESS
             hiddenTime: null,
@@ -1098,7 +1099,12 @@
                         // Slower growth: using log base 1.5 makes it grow slower
                         this.blackHoleSize = 10 + Math.log(this.blackHoleMass + 1) / Math.log(1.5) * 10;
                     }
-                    this.infinityPoints += totalGain; 
+                    this.infinityPoints += totalGain;
+                    // Track gain for rate calculation
+                    this._essenceGainHistory = this._essenceGainHistory || [];
+                    this._essenceGainHistory.push({ amount: totalGain, time: performance.now() });
+                    // Keep only last 2 seconds
+                    this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                     UI.spawnText(`+${totalGain.toFixed(1)} Essence`, 0, true, 'blue-purple');
                     UI.spawnComboText(`+${(this.blackHoleCombo * 100).toFixed(1)}%`, e.clientX, e.clientY);
                     Renderer.clickEffect(e.clientX, e.clientY, '#bd00ff');
@@ -1896,6 +1902,11 @@
                             if(dist < 20) {
                                 let voidGain = 1 * (this.eventEssenceMult || 1);
                                 this.infinityPoints += voidGain;
+                                // Track gain for rate calculation
+                                this._essenceGainHistory = this._essenceGainHistory || [];
+                                this._essenceGainHistory.push({ amount: voidGain, time: performance.now() });
+                                // Keep only last 2 seconds
+                                this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                                 UI.updateMainDisplay();
                                 let ang = Math.random() * Math.PI * 2;
                                 let r = Math.max(window.innerWidth, window.innerHeight)/1.5;
@@ -1945,6 +1956,11 @@
                                 // Particle absorbed - give essence (more than void particles)
                                 let cosmicGain = 3 * (this.eventEssenceMult || 1); // Cosmic particles give 3x more than void
                                 this.infinityPoints += cosmicGain;
+                                // Track gain for rate calculation
+                                this._essenceGainHistory = this._essenceGainHistory || [];
+                                this._essenceGainHistory.push({ amount: cosmicGain, time: performance.now() });
+                                // Keep only last 2 seconds
+                                this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                                 UI.updateMainDisplay();
                                 // Particle absorbed, respawn
                                 let ang = Math.random() * Math.PI * 2;
@@ -2834,17 +2850,21 @@
                 if(!particleInfo) return;
                 particleInfo.style.display = 'block';
                 
-                // Calculate actual essence per second based on absorption rate
-                // Void particles move slowly, absorb about once per 1-2 seconds
-                // Cosmic particles move 5x faster, absorb about 5x as often
-                let voidParticleCount = Game.voidParticles ? Game.voidParticles.length : 0;
-                let cosmicParticleCount = Game.cosmicParticles ? Game.cosmicParticles.length : 0;
-                let artifactMult = (Game.artifacts && Game.artifacts.crystal) ? 2 : 1;
+                // Calculate actual essence per second from tracked gains
+                if(!Game._essenceGainHistory) Game._essenceGainHistory = [];
+                // Filter to last 2 seconds
+                const now = performance.now();
+                const recentGains = Game._essenceGainHistory.filter(h => now - h.time < 2000);
+                const totalEssenceGain = recentGains.reduce((sum, h) => sum + h.amount, 0);
+                const timeWindow = 2; // 2 seconds
+                const essencePerSecond = totalEssenceGain / timeWindow;
                 
-                // Void particles: ~0.8 essence/s per particle (conservative estimate)
-                let voidRate = voidParticleCount * 0.8 * artifactMult;
-                // Cosmic particles: ~5 essence/s per particle (5x faster movement)
-                let cosmicRate = cosmicParticleCount * 5 * artifactMult;
+                // Split between void and cosmic based on gain amounts (void gives 1, cosmic gives 3)
+                let voidGains = recentGains.filter(h => h.amount === 1 || h.amount === 2).reduce((sum, h) => sum + h.amount, 0);
+                let cosmicGains = recentGains.filter(h => h.amount === 3 || h.amount === 6).reduce((sum, h) => sum + h.amount, 0);
+                
+                let voidRate = voidGains / timeWindow;
+                let cosmicRate = cosmicGains / timeWindow;
                 
                 document.getElementById('void-particle-rate').innerText = `Void: +${Format(voidRate)}/s`;
                 document.getElementById('cosmic-particle-rate').innerText = `Cosmic: +${Format(cosmicRate)}/s`;
@@ -2980,7 +3000,12 @@
                     card1.style.pointerEvents = 'none';
                 }
                 card1.onclick = () => {
-                    if(Game.infinityPoints >= cost1) { Game.infinityPoints -= cost1; Game.infUpgrades.void++; UI.updateMainDisplay(); UI.buildInfinityUpgrades(); }
+                    if(Game.infinityPoints >= cost1) { 
+                        Game.infinityPoints -= cost1; 
+                        Game.infUpgrades.void++; 
+                        UI.updateMainDisplay(); 
+                        UI.buildInfinityUpgrades(); 
+                    }
                 };
                 con.appendChild(card1);
 
@@ -2993,7 +3018,12 @@
                     card2.style.pointerEvents = 'none';
                 }
                 card2.onclick = () => {
-                    if(Game.infinityPoints >= cost2) { Game.infinityPoints -= cost2; Game.infUpgrades.weave++; UI.updateMainDisplay(); UI.buildInfinityUpgrades(); }
+                    if(Game.infinityPoints >= cost2) { 
+                        Game.infinityPoints -= cost2; 
+                        Game.infUpgrades.weave++; 
+                        UI.updateMainDisplay(); 
+                        UI.buildInfinityUpgrades(); 
+                    }
                 };
                 con.appendChild(card2);
 
@@ -3364,6 +3394,8 @@
                 if(Game.dimension === 1) {
                     document.getElementById('main-display-val').innerText = Format(Game.infinityPoints);
                     this.updateParticleRates();
+                    // Rebuild upgrades to update button states when essence changes
+                    this.buildInfinityUpgrades();
                     return;
                 }
                 const idx = Game.selectedRes; 
@@ -3459,8 +3491,15 @@
                 const r = isGradient ? 150 : (CONFIG.baseRadius + (layerIdx * CONFIG.spacing));
                 const ang = Math.random() * Math.PI * 2;
                 
-                el.style.left = (cx + Math.cos(ang) * (r + 20)) + 'px';
-                el.style.top = (cy + Math.sin(ang) * (r + 20)) + 'px';
+                // Use world coordinates that follow rings when camera moves
+                const worldX = Math.cos(ang) * (r + 20);
+                const worldY = Math.sin(ang) * (r + 20);
+                // Convert world to screen coordinates accounting for camera
+                const screenX = cx + (worldX * Renderer.zoom) + Renderer.cameraX;
+                const screenY = cy + (worldY * Renderer.zoom) + Renderer.cameraY;
+                
+                el.style.left = screenX + 'px';
+                el.style.top = screenY + 'px';
 
                 document.body.appendChild(el);
                 setTimeout(() => el.remove(), 1000);
