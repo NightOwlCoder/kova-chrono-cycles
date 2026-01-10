@@ -970,6 +970,33 @@
                     }
                 });
                 window.addEventListener('keydown', (e) => { if(e.key === '`' || e.key === '~') document.getElementById('dev-menu').classList.toggle('open'); });
+                
+                // DRAGGABLE PARTICLE INFO
+                let particleInfoDragging = false;
+                let particleInfoOffset = { x: 0, y: 0 };
+                const particleInfo = document.getElementById('particle-info');
+                if(particleInfo) {
+                    particleInfo.addEventListener('mousedown', (e) => {
+                        particleInfoDragging = true;
+                        const rect = particleInfo.getBoundingClientRect();
+                        particleInfoOffset.x = e.clientX - rect.left;
+                        particleInfoOffset.y = e.clientY - rect.top;
+                        e.preventDefault();
+                        e.stopPropagation();
+                    });
+                    document.addEventListener('mousemove', (e) => {
+                        if(particleInfoDragging && particleInfo) {
+                            particleInfo.style.left = (e.clientX - particleInfoOffset.x) + 'px';
+                            particleInfo.style.top = (e.clientY - particleInfoOffset.y) + 'px';
+                            particleInfo.style.right = 'auto';
+                            particleInfo.style.bottom = 'auto';
+                        }
+                    });
+                    document.addEventListener('mouseup', () => {
+                        particleInfoDragging = false;
+                    });
+                }
+                
                 // TOUCH SUPPORT for mobile
                 window.addEventListener('touchstart', (e) => {
                     AudioSys.init();
@@ -1943,9 +1970,22 @@
                             this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                         }
 
-                        // Spawn particles - they spawn with random positions so they're desynced
-                        while (this.voidParticles.length < targetCount) {
-                            Renderer.spawnVoidParticle();
+                        // Spawn particles with staggered timing over 1 second to look random
+                        const needed = targetCount - this.voidParticles.length;
+                        if(needed > 0) {
+                            // Track spawn delays to avoid multiple simultaneous spawns
+                            if(!this._voidParticleSpawnQueue) this._voidParticleSpawnQueue = [];
+                            const now = performance.now();
+                            this._voidParticleSpawnQueue = this._voidParticleSpawnQueue.filter(t => now - t < 1000);
+                            
+                            // Spawn particles with random delays up to 1 second
+                            for(let i = 0; i < needed; i++) {
+                                const delay = Math.random() * 1000; // Random delay 0-1000ms
+                                setTimeout(() => {
+                                    Renderer.spawnVoidParticle();
+                                    this._voidParticleSpawnQueue.push(performance.now());
+                                }, delay);
+                            }
                         }
                         if (this.voidParticles.length > targetCount) {
                             this.voidParticles.length = targetCount;
@@ -2013,8 +2053,12 @@
                             p.y += Math.sin(tangentialAngle) * orbitalSpeed * 0.08 + Math.sin(angleToCenter) * radialSpeed * 0.06;
                             
                             if(dist < this.blackHoleSize + 10) {
-                                // Particle absorbed - give essence (5x more than void particles)
-                                let cosmicGain = 5 * (this.eventEssenceMult || 1); // Cosmic particles give 5x more than void
+                                // Particle absorbed - give exponential essence based on upgrade level
+                                // Base 5, multiplied exponentially by particle upgrade level
+                                const particleLevel = this.infUpgrades.particles || 0;
+                                const baseCosmicGain = 5;
+                                const exponentialMult = Math.pow(1.5, particleLevel); // 1.5x per level
+                                let cosmicGain = baseCosmicGain * exponentialMult * (this.eventEssenceMult || 1);
                                 this.infinityPoints += cosmicGain;
                                 // Track gain for rate calculation
                                 this._essenceGainHistory = this._essenceGainHistory || [];
@@ -2940,9 +2984,30 @@
                     // Clicks are not counted in particle rates - only actual particles
                 });
                 
-                // Calculate per second rates
+                // Calculate per second rates from tracked gains
                 let voidRate = voidGains / timeWindow;
                 let cosmicRate = cosmicGains / timeWindow;
+                
+                // Also calculate theoretical rates based on particle counts and exponential gains
+                // This gives more accurate display when particles are actively spawning/absorbing
+                const voidParticleCount = Game.voidParticles ? Game.voidParticles.length : 0;
+                const cosmicParticleCount = Game.cosmicParticles ? Game.cosmicParticles.length : 0;
+                const eventMult = Game.eventEssenceMult || 1;
+                
+                // Void particles: 1 base, multiplied by event, absorbed ~once per 1-2 seconds
+                const voidTheoreticalRate = voidParticleCount * 0.8 * eventMult;
+                
+                // Cosmic particles: exponential gain based on upgrade level
+                const particleLevel = Game.infUpgrades.particles || 0;
+                const baseCosmicGain = 5;
+                const exponentialMult = Math.pow(1.5, particleLevel); // 1.5x per level
+                const cosmicGainPerAbsorption = baseCosmicGain * exponentialMult * eventMult;
+                // Cosmic particles move 5x faster, so absorb ~5x as often
+                const cosmicTheoreticalRate = cosmicParticleCount * cosmicGainPerAbsorption * 5;
+                
+                // Use theoretical rates if they're higher (when particles are actively spawning)
+                voidRate = Math.max(voidRate, voidTheoreticalRate);
+                cosmicRate = Math.max(cosmicRate, cosmicTheoreticalRate);
                 
                 // Ensure rates are valid numbers
                 if(isNaN(voidRate) || !isFinite(voidRate)) voidRate = 0;
