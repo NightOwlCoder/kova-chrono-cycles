@@ -1632,7 +1632,15 @@
                 try {
                     const data = JSON.parse(saved);
                     if(data.resources) this.resources = data.resources;
-                    if(data.rings) this.rings = data.rings;
+                    if(data.rings) {
+                        this.rings = data.rings;
+                        // Set _highSpeedTime for rings over 3000 RPM to prevent ticks on load
+                        this.rings.forEach(ring => {
+                            if(ring.velocity >= 3000 && !ring._highSpeedTime) {
+                                ring._highSpeedTime = performance.now() - 2000; // Set to 2 seconds ago so ticks are muted
+                            }
+                        });
+                    }
                     if(data.chronons !== undefined) this.chronons = data.chronons;
                     if(data.autoBuyEnabled !== undefined) this.autoBuyEnabled = data.autoBuyEnabled;
                     if(data.layerAutoBuy) this.layerAutoBuy = data.layerAutoBuy;
@@ -1688,6 +1696,15 @@
                             if(this.dimension === 2 || (this.profiles && Object.keys(this.profiles.challenges || {}).length > 0)) {
                                 document.getElementById('profile-btn').style.display = 'block';
                             }
+                            // Always show warp button if unlocked (unless in challenge)
+                            const isChallenge = this.currentProfile && this.currentProfile !== 'main';
+                            if(!isChallenge && (this.unlockedLayers >= 10 || (this.infinityPoints >= 1e12 || this.artifacts.prism))) {
+                                document.getElementById('warp-btn').style.display = 'block';
+                            }
+                            // Always show reality button if unlocked (unless in challenge)
+                            if(!isChallenge && (this.infinityPoints >= 1e12 || this.artifacts.prism)) {
+                                document.getElementById('reality-btn').style.display = 'block';
+                            }
                         }, 100);
                     }
                     
@@ -1703,8 +1720,18 @@
                     // Microcosm
                     document.getElementById('return-btn').style.display = 'none';
                     document.getElementById('circle-ui-group').style.display = 'block';
-                    document.getElementById('warp-btn').style.display = (this.unlockedLayers >= 10 || (this.infinityPoints >= 1e12 || this.artifacts.prism)) ? 'block' : 'none';
-                    document.getElementById('reality-btn').style.display = (this.infinityPoints >= 1e12 || this.artifacts.prism) ? 'block' : 'none';
+                    // Show warp/reality buttons if unlocked (always, unless in challenge)
+                    const isChallenge = this.currentProfile && this.currentProfile !== 'main';
+                    if(!isChallenge && (this.unlockedLayers >= 10 || (this.infinityPoints >= 1e12 || this.artifacts.prism))) {
+                        document.getElementById('warp-btn').style.display = 'block';
+                    } else {
+                        document.getElementById('warp-btn').style.display = 'none';
+                    }
+                    if(!isChallenge && (this.infinityPoints >= 1e12 || this.artifacts.prism)) {
+                        document.getElementById('reality-btn').style.display = 'block';
+                    } else {
+                        document.getElementById('reality-btn').style.display = 'none';
+                    }
                     document.getElementById('forge-open-btn').style.display = 'none';
                     document.getElementById('challenges-open-btn').style.display = 'none';
                     document.getElementById('click-combo-container').style.display = 'block';
@@ -1802,7 +1829,14 @@
                     { name: "TEMPORAL FLOOD", desc: "Resources gain x5 for 15s", type: "evt-warp", dur: 15, rarity: 0.3, apply: (g) => g.eventMult = 5 },
                     { name: "VOID BREACH", desc: "Essence gain x10 in Infinity", type: "evt-void", dur: 20, rarity: 0.25, apply: (g) => g.eventEssenceMult = 10 },
                     { name: "ZERO FRICTION", desc: "Friction = 0 for 10s", type: "evt-void", dur: 10, rarity: 0.3, apply: (g) => g.eventFriction = 0 },
-                    { name: "HYPERDRIVE", desc: "System Speed x3", type: "evt-warp", dur: 12, rarity: 0.25, apply: (g) => g.eventSpeed = 3 }
+                    { name: "HYPERDRIVE", desc: "System Speed x3", type: "evt-warp", dur: 12, rarity: 0.25, apply: (g) => g.eventSpeed = 3 },
+                    // EVEN RARER EVENTS (rarity 0.1-0.15 = 10x rarer)
+                    { name: "TEMPORAL COLLAPSE", desc: "All resources x10 instantly", type: "evt-warp", dur: 1, rarity: 0.1, apply: (g) => {
+                        g.resources.forEach((r, i) => g.resources[i] *= 10);
+                        UI.spawnText("TEMPORAL COLLAPSE!", 0, true);
+                    }},
+                    { name: "INFINITY CASCADE", desc: "Essence gain x100 for 5s", type: "evt-void", dur: 5, rarity: 0.15, apply: (g) => g.eventEssenceMult = 100 },
+                    { name: "CHRONON FLOOD", desc: "Next prestige gives x10 Chronons", type: "evt-warp", dur: 60, rarity: 0.1, apply: (g) => g.eventChrononMult = 10 }
                 ];
                 
                 // Weighted random - rare events have lower chance
@@ -2821,7 +2855,10 @@
                     { name: "TEMPORAL FLOOD", desc: "Resources gain x5 for 15s", rarity: 0.3, rare: true },
                     { name: "VOID BREACH", desc: "Essence gain x10 in Infinity", rarity: 0.25, rare: true },
                     { name: "ZERO FRICTION", desc: "Friction = 0 for 10s", rarity: 0.3, rare: true },
-                    { name: "HYPERDRIVE", desc: "System Speed x3", rarity: 0.25, rare: true }
+                    { name: "HYPERDRIVE", desc: "System Speed x3", rarity: 0.25, rare: true },
+                    { name: "TEMPORAL COLLAPSE", desc: "All resources x10 instantly", rarity: 0.1, rare: true },
+                    { name: "INFINITY CASCADE", desc: "Essence gain x100 for 5s", rarity: 0.15, rare: true },
+                    { name: "CHRONON FLOOD", desc: "Next prestige gives x10 Chronons", rarity: 0.1, rare: true }
                 ];
                 
                 list.innerHTML = '';
