@@ -1997,7 +1997,7 @@
                             let dist = Math.sqrt(dx*dx + dy*dy);
                             // Frame-rate independent movement - pixels per second
                             // Original: 0.02 * distance per frame = ~120 pixels/sec at typical distances
-                            const voidSpeed = 120; // pixels per second (much faster!)
+                            const voidSpeed = 1200; // pixels per second (much faster!)
                             p.x += (dx / dist) * voidSpeed * dt; 
                             p.y += (dy / dist) * voidSpeed * dt;
                             if(dist < 20) {
@@ -2053,8 +2053,8 @@
                             const maxDist = Math.max(window.innerWidth, window.innerHeight) / 2;
                             // Original: orbital ~4-8 pixels/frame, radial ~3.6 pixels/frame at 60fps
                             // Convert to per-second: multiply by ~60, but keep speeds reasonable
-                            let orbitalSpeedPerSec = (20 + (1 - dist / maxDist) * 30) * 5 * 5; // ~100-250 pixels/sec orbital
-                            let radialSpeedPerSec = 12 * 5 * 5; // ~300 pixels/sec radial (faster inward pull)
+                            let orbitalSpeedPerSec = (20 + (1 - dist / maxDist) * 30) * 5 * 10; // ~100-250 pixels/sec orbital
+                            let radialSpeedPerSec = 12 * 5 * 10; // ~300 pixels/sec radial (faster inward pull)
                             
                             // Combine orbital and radial motion - frame-rate independent
                             p.x += (Math.cos(tangentialAngle) * orbitalSpeedPerSec + Math.cos(angleToCenter) * radialSpeedPerSec) * dt;
