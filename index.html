@@ -480,6 +480,7 @@
         </div>
         <button class="toggle-btn" id="mute-ticks-btn" onclick="AudioSys.toggleTicks()">MUTE TICKS: OFF</button>
         <button class="toggle-btn active" id="floaters-btn" onclick="UI.toggleFloaters()">FLOATING TEXT: ON</button>
+        <button class="toggle-btn" id="auto-select-material-btn" onclick="UI.toggleAutoSelectMaterial()">AUTO-SELECT MATERIAL: OFF</button>
         <button class="toggle-btn active" id="auto-toggle-btn" onclick="Game.toggleAutoBuy()" style="display:none;">AUTO-BUY: ON</button>
         <button class="toggle-btn" onclick="document.getElementById('autobuy-modal').classList.add('open'); UI.buildAutoBuyMenu()">⚙️ LAYER AUTO-BUY</button>
         <div style="border-top:1px solid #333; margin-top:15px; padding-top:15px;">
@@ -885,20 +886,22 @@
             currentProfile: 'main',
             artifacts: { prism: false, anchor: false, chart: false },
             
-            settings: { floaters: true },
+            settings: { floaters: true, autoSelectMaterial: false },
             hasAutoDisabledFloaters: false,
             disableScheduled: false,
             _isResetting: false,
 
             // CLICK COMBO
-            clickCombo: 0, 
+            clickCombo: 0,
+            layerClickCombo: new Array(10).fill(0), // Per-layer click combo
+            blackHoleCombo: 0, // Blackhole click combo 
             comboGrace: 0,
 
             // GLOBAL EVENT SYSTEM
             activeEvent: null, eventTimer: 0, nextEventTime: 90,
 
             // INFINITY STATE
-            blackHoleSize: 10, blackHoleMass: 0, infUpgrades: { weave: 0, void: 0, particles: 0 },
+            blackHoleSize: 10, blackHoleMass: 0, infUpgrades: { weave: 0, void: 0, particles: 0, clickGain: 0 },
             cosmicParticles: [],
             voidParticles: [], 
 
@@ -999,14 +1002,23 @@
                     let layerIdx = clickedLayer;
                     let base = (layerIdx === 0) ? CONFIG.redTorque : CONFIG.clickTorque;
                     
-                    this.clickCombo += 0.005; 
+                    // Per-layer click combo (only for this specific ring)
+                    this.layerClickCombo[layerIdx] = (this.layerClickCombo[layerIdx] || 0) + 0.005; 
                     let maxCombo = 0.5 + (this.infUpgrades.weave * 0.05); 
-                    if(this.clickCombo > maxCombo) this.clickCombo = maxCombo; 
-                    this.comboGrace = 0.25; 
+                    if(this.layerClickCombo[layerIdx] > maxCombo) this.layerClickCombo[layerIdx] = maxCombo; 
+                    this.layerComboGrace = this.layerComboGrace || new Array(10).fill(0);
+                    this.layerComboGrace[layerIdx] = 0.25; 
                     
-                    if(this.dimension === 0) UI.spawnComboText(`+${(this.clickCombo * 100).toFixed(1)}%`, e.clientX, e.clientY);
+                    const layerComboBoost = 1 + this.layerClickCombo[layerIdx];
+                    
+                    if(this.dimension === 0) UI.spawnComboText(`+${(this.layerClickCombo[layerIdx] * 100).toFixed(1)}%`, e.clientX, e.clientY);
 
-                    let boost = (this.rings[layerIdx].upgrades.auto * 5) + (base * 100); 
+                    // Auto-select material if setting enabled
+                    if(this.settings.autoSelectMaterial) {
+                        UI.selectCurr(layerIdx);
+                    }
+
+                    let boost = (this.rings[layerIdx].upgrades.auto * 5) + (base * 100) * layerComboBoost; 
                     if (this.activeEvent && this.activeEvent.name === "KINETIC FRENZY") boost += this.rings[layerIdx].velocity * 0.05; 
                     this.rings[layerIdx].velocity += boost;
 
@@ -1024,16 +1036,27 @@
                 const dx = worldX; const dy = worldY;
                 const dist = Math.sqrt(dx*dx + dy*dy);
                 if(dist < this.blackHoleSize + 20) {
+                    // Click combo for blackhole (up to 50%)
+                    this.blackHoleCombo = (this.blackHoleCombo || 0) + 0.005;
+                    const maxCombo = 0.5;
+                    if(this.blackHoleCombo > maxCombo) this.blackHoleCombo = maxCombo;
+                    this.blackHoleComboGrace = 0.25;
+                    
+                    const comboBoost = 1 + this.blackHoleCombo;
+                    const baseGain = 1 + (this.infUpgrades.clickGain || 0); // Infinity upgrade
+                    const totalGain = baseGain * comboBoost;
+                    
                     this.blackHoleMass += 1;
-                    // Grow slower: use log base 1.5 instead of log base e, and increase max size to 3x (1350)
-                    if(this.blackHoleSize < 1350) {
+                    // Grow slower: use log base 1.5, and increase max size to 5x (6750 instead of 1350)
+                    if(this.blackHoleSize < 6750) {
                         // Slower growth: using log base 1.5 makes it grow slower
                         this.blackHoleSize = 10 + Math.log(this.blackHoleMass + 1) / Math.log(1.5) * 10;
                     }
-                    this.infinityPoints += 1; 
-                    UI.spawnText(`+1 Essence`, 0, true, 'blue-purple');
+                    this.infinityPoints += totalGain; 
+                    UI.spawnText(`+${totalGain.toFixed(1)} Essence`, 0, true, 'blue-purple');
                     Renderer.clickEffect(e.clientX, e.clientY, '#bd00ff');
                     UI.updateMainDisplay();
+                    UI.updateComboUI();
                 }
             },
 
@@ -1140,6 +1163,7 @@
 
             getTotalValue() {
                 let total = 0;
+                // Calculate from all layers, not just first
                 for(let i=0; i<this.unlockedLayers; i++) {
                     total += this.resources[i] * Math.pow(10, i); 
                 }
@@ -1262,7 +1286,11 @@
                 this.unlockedLayers = profile.unlockedLayers !== undefined ? profile.unlockedLayers : 1;
                 this.chronons = profile.chronons !== undefined ? profile.chronons : 0;
                 this.infinityPoints = profile.infinityPoints !== undefined ? profile.infinityPoints : 0;
-                this.artifacts = profile.artifacts ? {...profile.artifacts} : { prism: false, anchor: false, chart: false };
+                this.artifacts = profile.artifacts ? {...profile.artifacts} : { prism: false, anchor: false, chart: false, crystal: false, amplifier: false, loop: false };
+                // Ensure all artifact properties exist
+                if(!this.artifacts.crystal) this.artifacts.crystal = false;
+                if(!this.artifacts.amplifier) this.artifacts.amplifier = false;
+                if(!this.artifacts.loop) this.artifacts.loop = false;
                 this.layerAutoBuy = profile.layerAutoBuy ? [...profile.layerAutoBuy] : new Array(10).fill(false);
                 this.layerAutoBuyPurchased = profile.layerAutoBuyPurchased ? [...profile.layerAutoBuyPurchased] : new Array(10).fill(false);
                 this.floatersEnabled = profile.floatersEnabled ? [...profile.floatersEnabled] : new Array(10).fill(true);
@@ -1307,7 +1335,10 @@
                 
                 if (item === 'prism') { costShards = 1e12; costEssence = 1e6; resType = 0; } 
                 if (item === 'anchor') { costShards = 1e12; costEssence = 5e6; resType = 4; } 
-                if (item === 'chart') { costShards = 1e12; costEssence = 10e6; resType = 3; } 
+                if (item === 'chart') { costShards = 1e12; costEssence = 10e6; resType = 3; }
+                if (item === 'crystal') { costShards = 5e12; costEssence = 50e6; resType = 1; }
+                if (item === 'amplifier') { costShards = 10e12; costEssence = 100e6; resType = 2; }
+                if (item === 'loop') { costShards = 50e12; costEssence = 500e6; resType = 5; } 
                 
                 if (this.resources[resType] >= costShards && this.infinityPoints >= costEssence && !this.artifacts[item]) {
                     this.resources[resType] -= costShards;
@@ -1543,11 +1574,68 @@
                     if(!this.profiles) this.profiles = { main: null, challenges: {} };
                     if(!this.currentProfile) this.currentProfile = 'main';
                     if(!this.selectedRPM) this.selectedRPM = 0;
+                    
+                    // Restore UI state based on dimension
+                    if(this.dimension !== undefined) {
+                        setTimeout(() => {
+                            this.restoreDimensionUI(this.dimension);
+                        }, 100);
+                    }
+                    
                     return true;
                 } catch(e) {
                     console.error('Failed to load save:', e);
                     return false;
                 }
+            },
+            
+            restoreDimensionUI(dim) {
+                if(dim === 0) {
+                    // Microcosm
+                    document.getElementById('return-btn').style.display = 'none';
+                    document.getElementById('circle-ui-group').style.display = 'block';
+                    document.getElementById('warp-btn').style.display = (this.unlockedLayers >= 10 || (this.infinityPoints >= 1e12 || this.artifacts.prism)) ? 'block' : 'none';
+                    document.getElementById('reality-btn').style.display = (this.infinityPoints >= 1e12 || this.artifacts.prism) ? 'block' : 'none';
+                    document.getElementById('forge-open-btn').style.display = 'none';
+                    document.getElementById('challenges-open-btn').style.display = 'none';
+                    document.getElementById('click-combo-container').style.display = 'block';
+                    document.getElementById('game-title').innerText = "CHRONO ENGINE";
+                    document.getElementById('game-title').style.color = "#fff";
+                    document.querySelector('.currency-select').style.pointerEvents = "auto";
+                    UI.buildUpgrades();
+                    UI.updateCurrList();
+                    UI.selectCurr(this.selectedRes || 0);
+                } else if(dim === 1) {
+                    // Infinity
+                    document.getElementById('warp-btn').style.display = 'none';
+                    document.getElementById('return-btn').style.display = 'block';
+                    document.getElementById('circle-ui-group').style.display = 'none';
+                    document.getElementById('click-combo-container').style.display = 'none';
+                    document.getElementById('forge-open-btn').style.display = 'block';
+                    document.getElementById('reality-btn').style.display = (this.infinityPoints >= 1e12 || this.artifacts.prism) ? 'block' : 'none';
+                    document.getElementById('game-title').innerText = "INFINITY ENGINE";
+                    document.getElementById('game-title').style.color = "#bd00ff";
+                    document.querySelector('.currency-select').style.pointerEvents = "none";
+                    document.getElementById('main-display-name').innerText = "INFINITY ESSENCE";
+                    document.getElementById('main-display-name').style.color = "#bd00ff";
+                    document.getElementById('main-display-val').style.color = "#bd00ff";
+                    UI.buildInfinityUpgrades();
+                } else if(dim === 2) {
+                    // Reality
+                    document.getElementById('return-btn').style.display = 'block';
+                    document.getElementById('return-btn').innerText = "<< RETURN TO MICROCOSM";
+                    document.getElementById('circle-ui-group').style.display = 'block';
+                    document.querySelector('.currency-select').style.pointerEvents = "auto";
+                    document.getElementById('reality-btn').style.display = 'none';
+                    document.getElementById('forge-open-btn').style.display = 'none';
+                    document.getElementById('challenges-open-btn').style.display = 'block';
+                    document.getElementById('profile-btn').style.display = 'block';
+                    document.getElementById('game-title').innerText = "REALITY ENGINE";
+                    document.getElementById('game-title').style.color = "#ffd700";
+                    UI.buildUpgrades();
+                    UI.selectCurr(10);
+                }
+                UI.updateDimensionUI();
             },
 
 
@@ -1564,7 +1652,11 @@
                 return 1.0 + (parentRes / threshold);
             },
 
-            getChrononBoost() { return 1 + (this.chronons * 0.1); },
+            getChrononBoost() { 
+                let base = 1 + (this.chronons * 0.1);
+                if(this.artifacts.amplifier) base *= 1.25; // +25% from artifact
+                return base;
+            },
 
             getLayerMult(idx) {
                 let speedMult = 1 + (this.rings[idx].upgrades.speed * 0.25);
@@ -1609,14 +1701,26 @@
                 try {
                     this.runAutoBuy();
 
-                    // CLICK COMBO DECAY
-                    if (this.comboGrace > 0) {
-                        this.comboGrace -= dt;
-                    } else if(this.clickCombo > 0 && !this.artifacts.anchor) { 
-                        this.clickCombo -= dt * 0.1; 
-                        if(this.clickCombo < 0) this.clickCombo = 0;
-                        UI.updateComboUI();
+                    // CLICK COMBO DECAY (per-layer)
+                    this.layerComboGrace = this.layerComboGrace || new Array(10).fill(0);
+                    for(let i = 0; i < 10; i++) {
+                        if(this.layerComboGrace[i] > 0) {
+                            this.layerComboGrace[i] -= dt;
+                        } else if((this.layerClickCombo[i] || 0) > 0 && !this.artifacts.anchor) {
+                            this.layerClickCombo[i] -= dt * 0.1;
+                            if(this.layerClickCombo[i] < 0) this.layerClickCombo[i] = 0;
+                        }
                     }
+                    
+                    // Blackhole combo decay
+                    if(this.blackHoleComboGrace > 0) {
+                        this.blackHoleComboGrace -= dt;
+                    } else if(this.blackHoleCombo > 0 && !this.artifacts.anchor) {
+                        this.blackHoleCombo -= dt * 0.1;
+                        if(this.blackHoleCombo < 0) this.blackHoleCombo = 0;
+                    }
+                    
+                    UI.updateComboUI();
 
                     // PARTICLE LOGIC (VOID SIPHON) - EXPONENTIAL BUFF
                     if (this.dimension === 1) {
@@ -1652,6 +1756,48 @@
                             }
                             p.history.push({x: p.x, y: p.y});
                             if(p.history.length > 10) p.history.shift();
+                        });
+
+                        // Cosmic Particles (satisfying particles)
+                        const cosmicCount = this.infUpgrades.particles || 0;
+                        while(this.cosmicParticles.length < cosmicCount) {
+                            let ang = Math.random() * Math.PI * 2;
+                            let r = Math.max(window.innerWidth, window.innerHeight) / 2;
+                            this.cosmicParticles.push({
+                                x: (window.innerWidth/2) + Math.cos(ang)*r,
+                                y: (window.innerHeight/2) + Math.sin(ang)*r,
+                                angle: ang + Math.PI,
+                                speed: 0.5 + Math.random() * 0.5,
+                                history: []
+                            });
+                        }
+                        if(this.cosmicParticles.length > cosmicCount) {
+                            this.cosmicParticles.length = cosmicCount;
+                        }
+                        
+                        this.cosmicParticles.forEach(p => {
+                            let dx = (window.innerWidth/2) - p.x;
+                            let dy = (window.innerHeight/2) - p.y;
+                            let dist = Math.sqrt(dx*dx + dy*dy);
+                            let angle = Math.atan2(dy, dx);
+                            p.x += Math.cos(angle) * p.speed * 3;
+                            p.y += Math.sin(angle) * p.speed * 3;
+                            
+                            // Spiral effect
+                            p.angle += 0.1;
+                            p.x += Math.cos(p.angle) * 0.5;
+                            p.y += Math.sin(p.angle) * 0.5;
+                            
+                            if(dist < this.blackHoleSize + 10) {
+                                // Particle absorbed, respawn
+                                let ang = Math.random() * Math.PI * 2;
+                                let r = Math.max(window.innerWidth, window.innerHeight) / 2;
+                                p.x = (window.innerWidth/2) + Math.cos(ang)*r;
+                                p.y = (window.innerHeight/2) + Math.sin(ang)*r;
+                                p.history = [];
+                            }
+                            p.history.push({x: p.x, y: p.y});
+                            if(p.history.length > 15) p.history.shift();
                         });
                         
                         // Constellation Passive Boost
@@ -2421,7 +2567,13 @@
                 Game.settings.floaters = !Game.settings.floaters;
                 const btn = document.getElementById('floaters-btn');
                 btn.innerText = `FLOATING TEXT: ${Game.settings.floaters ? "ON" : "OFF"}`;
-                btn.classList.toggle('active');
+                if(Game.settings.floaters) btn.classList.add('active'); else btn.classList.remove('active');
+            },
+            toggleAutoSelectMaterial() {
+                Game.settings.autoSelectMaterial = !Game.settings.autoSelectMaterial;
+                const btn = document.getElementById('auto-select-material-btn');
+                btn.innerText = `AUTO-SELECT MATERIAL: ${Game.settings.autoSelectMaterial ? "ON" : "OFF"}`;
+                if(Game.settings.autoSelectMaterial) btn.classList.add('active'); else btn.classList.remove('active');
             },
             setManualPage(pageIdx, btn) {
                 document.querySelectorAll('.manual-page').forEach(p => p.classList.remove('active'));
@@ -2595,6 +2747,24 @@
                         }
                     };
                     con.appendChild(card3);
+                }
+
+                // Click Gain upgrade
+                if(Game.infUpgrades.void > 0) {
+                    let cost4 = 500 * Math.pow(2.0, Game.infUpgrades.clickGain || 0);
+                    const card4 = document.createElement('div'); card4.className = 'upgrade-card';
+                    card4.style.borderColor = '#ff6b9d';
+                    card4.innerHTML = `<div class="u-info"><span class="u-name">Quantum Amplifier</span><span class="u-desc">Increases Essence gained per blackhole click. +${(Game.infUpgrades.clickGain || 0)} per click.</span></div><div class="u-meta"><span class="u-cost">${Format(cost4)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.clickGain || 0}</span></div>`;
+                    card4.onclick = () => {
+                        if(Game.infinityPoints >= cost4) { 
+                            Game.infinityPoints -= cost4; 
+                            if(!Game.infUpgrades.clickGain) Game.infUpgrades.clickGain = 0;
+                            Game.infUpgrades.clickGain++; 
+                            UI.updateMainDisplay(); 
+                            UI.buildInfinityUpgrades(); 
+                        }
+                    };
+                    con.appendChild(card4);
                 }
                 
             },
