@@ -3013,35 +3013,45 @@
                 const cosmicParticleCount = Game.cosmicParticles ? Game.cosmicParticles.length : 0;
                 const eventMult = Game.eventEssenceMult || 1;
                 
-                // Void particles: 1 base, multiplied by event and click combo, absorbed ~once per 1-2 seconds
-                const voidComboBoost = 1 + (Game.blackHoleCombo || 0); // Click combo boost (CURRENT)
-                const voidTheoreticalRate = voidParticleCount * 0.8 * eventMult * voidComboBoost;
+                // Use tracked gains directly - they're the actual measured rates from last 2 seconds
+                // Tracked gains already include combo from when they were earned
+                // For immediate combo feedback, we'll estimate and scale, but tracked is most accurate
                 
-                // Cosmic particles: exponential gain based on upgrade level
-                const particleLevel = Game.infUpgrades.particles || 0;
-                const baseCosmicGain = 5;
-                const exponentialMult = Math.pow(1.5, particleLevel); // 1.5x per level
-                const cosmicComboBoost = 1 + (Game.blackHoleCombo || 0); // Click combo boost (CURRENT)
-                const cosmicGainPerAbsorption = baseCosmicGain * exponentialMult * eventMult * cosmicComboBoost;
-                // Cosmic particles move 5x faster, so absorb ~5x as often
-                const cosmicTheoreticalRate = cosmicParticleCount * cosmicGainPerAbsorption * 5;
-                
-                // Always prioritize theoretical rates when particles exist (they have current combo)
-                // Otherwise use tracked rates if no particles (but scale by combo ratio)
-                if(voidParticleCount > 0) {
-                    voidRate = voidTheoreticalRate;
+                if(voidRateFromTracked > 10) {
+                    // We have significant tracked data - use it
+                    // To account for combo changes, estimate what combo produced this rate and scale
+                    // Tracked gains are from last 2 seconds, so combo might have changed
+                    // Estimate: what combo would give this rate?
+                    const baseRateNoCombo = voidParticleCount * 20 * 1 * eventMult; // ~20 absorptions/sec/particle
+                    if(baseRateNoCombo > 0) {
+                        const comboInTracked = Math.max(1.0, voidRateFromTracked / baseRateNoCombo);
+                        voidRate = voidRateFromTracked * (currentComboBoost / comboInTracked);
+                    } else {
+                        voidRate = voidRateFromTracked;
+                    }
                 } else {
-                    // No particles, use tracked but apply current combo ratio
-                    const avgComboInTracked = 1.0; // Assume base combo for old gains
-                    voidRate = voidRateFromTracked * (currentComboBoost / avgComboInTracked);
+                    // Little/no tracked data, use theoretical with current combo
+                    voidRate = voidParticleCount * 20 * 1 * eventMult * currentComboBoost;
                 }
                 
-                if(cosmicParticleCount > 0) {
-                    cosmicRate = cosmicTheoreticalRate;
+                if(cosmicRateFromTracked > 10) {
+                    // Use tracked cosmic gains
+                    const particleLevel = Game.infUpgrades.particles || 0;
+                    const baseCosmicGain = 5;
+                    const exponentialMult = Math.pow(1.5, particleLevel);
+                    const baseRateNoCombo = cosmicParticleCount * 40 * baseCosmicGain * exponentialMult * eventMult;
+                    if(baseRateNoCombo > 0) {
+                        const comboInTracked = Math.max(1.0, cosmicRateFromTracked / baseRateNoCombo);
+                        cosmicRate = cosmicRateFromTracked * (currentComboBoost / comboInTracked);
+                    } else {
+                        cosmicRate = cosmicRateFromTracked;
+                    }
                 } else {
-                    // No particles, use tracked but apply current combo ratio
-                    const avgComboInTracked = 1.0; // Assume base combo for old gains
-                    cosmicRate = cosmicRateFromTracked * (currentComboBoost / avgComboInTracked);
+                    // Fallback to theoretical
+                    const particleLevel = Game.infUpgrades.particles || 0;
+                    const baseCosmicGain = 5;
+                    const exponentialMult = Math.pow(1.5, particleLevel);
+                    cosmicRate = cosmicParticleCount * 40 * baseCosmicGain * exponentialMult * eventMult * currentComboBoost;
                 }
                 
                 // Ensure rates are valid numbers
