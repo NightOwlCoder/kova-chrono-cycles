@@ -1237,6 +1237,14 @@
                     document.getElementById('main-display-val').innerText = Format(this.infinityPoints);
                     document.querySelector('.currency-select').style.pointerEvents = "none";
                     UI.updateComboUI();
+                    // Show Singularity button if enough essence
+                    const singularityBtn = document.getElementById('singularity-btn');
+                    if(singularityBtn) {
+                        const hasEnough = (this.maxEssenceReached >= 1e8) || (this.infinityPoints >= 1e8);
+                        if(hasEnough) {
+                            singularityBtn.style.display = 'block';
+                        }
+                    }
                     load.style.opacity = 0; setTimeout(() => load.style.display = 'none', 1000);
                 }, 3000);
             },
@@ -1791,20 +1799,25 @@
                     else this.maxEssenceReached = 0;
                     if(data.singularityUpgrades !== undefined) this.singularityUpgrades = data.singularityUpgrades;
                     else this.singularityUpgrades = { resonance: 0, efficiency: 0, density: 0, cascade: 0 };
-                    if(data.cosmicParticles) {
-                        // Randomize cosmic particles positions on load so they're not all in sync
-                        this.cosmicParticles = data.cosmicParticles.map(p => {
-                            // Randomize position slightly to desync them
-                            const offsetX = (Math.random() - 0.5) * 200;
-                            const offsetY = (Math.random() - 0.5) * 200;
-                            return {
-                                x: p.x + offsetX,
-                                y: p.y + offsetY,
-                                angle: p.angle || 0,
-                                speed: p.speed || 0.5,
-                                history: p.history || []
-                            };
-                        });
+                    if(data.cosmicParticles && data.cosmicParticles.length > 0) {
+                        // On refresh, clear existing particles and respawn them with staggered delays over 1-2 seconds
+                        this.cosmicParticles = [];
+                        const cosmicCount = data.cosmicParticles.length;
+                        for(let i = 0; i < cosmicCount; i++) {
+                            const delay = Math.random() * 2000; // Random delay 0-2000ms (1-2 seconds)
+                            setTimeout(() => {
+                                const p = data.cosmicParticles[i];
+                                const offsetX = (Math.random() - 0.5) * 200;
+                                const offsetY = (Math.random() - 0.5) * 200;
+                                this.cosmicParticles.push({
+                                    x: p.x + offsetX,
+                                    y: p.y + offsetY,
+                                    angle: p.angle || (Math.random() * Math.PI * 2),
+                                    speed: p.speed || (0.5 + Math.random() * 0.5),
+                                    history: []
+                                });
+                            }, delay);
+                        }
                     } else {
                         this.cosmicParticles = [];
                     }
@@ -1914,7 +1927,17 @@
                     document.getElementById('reality-btn').style.display = (this.infinityPoints >= 1e12 || this.artifacts.prism) ? 'block' : 'none';
                     // Hide warp button in infinity dimension
                     document.getElementById('warp-btn').style.display = 'none';
-                    UI.updateSingularityUI(); // Update Singularity button visibility
+                    // Show Singularity button if enough essence
+                    const singularityBtn = document.getElementById('singularity-btn');
+                    if(singularityBtn) {
+                        const hasEnough = (Game.maxEssenceReached >= 1e8) || (Game.infinityPoints >= 1e8);
+                        if(hasEnough) {
+                            singularityBtn.style.display = 'block';
+                        } else {
+                            singularityBtn.style.display = 'none';
+                        }
+                    }
+                    UI.updateSingularityUI(); // Update modal content
                     document.getElementById('game-title').innerText = "INFINITY ENGINE";
                     document.getElementById('game-title').style.color = "#bd00ff";
                     document.querySelector('.currency-select').style.pointerEvents = "none";
@@ -2173,7 +2196,7 @@
                         if(cosmicNeeded > 0) {
                             // Spawn cosmic particles with random delays over 1 second to look random
                             for(let i = 0; i < cosmicNeeded; i++) {
-                                const delay = Math.random() * 1000; // Random delay 0-1000ms
+                                const delay = Math.random() * 2000; // Random delay 0-2000ms (1-2 seconds)
                                 setTimeout(() => {
                                     if(this.cosmicParticles.length < cosmicCount) {
                                         let ang = Math.random() * Math.PI * 2;
@@ -2724,11 +2747,20 @@
                 const visibleTop = viewTop - padding;
                 const visibleBottom = viewBottom + padding;
                 
+                // Optimize: Reduce stars rendered when zoomed in (better performance)
+                // When zoomed in, only render every Nth star to maintain performance
+                const starSkip = this.zoom > 2 ? Math.ceil(this.zoom / 2) : 1;
+                let starIndex = 0;
+                
                 this.stars.forEach(s => {
                     // Skip stars outside visible area
                     if(s.x < visibleLeft || s.x > visibleRight || s.y < visibleTop || s.y > visibleBottom) {
                         return;
                     }
+                    
+                    // Skip stars when zoomed in for performance
+                    starIndex++;
+                    if(starIndex % starSkip !== 0) return;
                     
                     // Flicker effect
                     const flickerIntensity = 0.7 + Math.sin(time * s.speed + s.flicker) * 0.3;
@@ -3918,6 +3950,14 @@
                     this.updateParticleRates();
                     // Update button states without rebuilding DOM to prevent hover issues
                     this.updateInfinityButtonStates();
+                    // Update Singularity button visibility
+                    const singularityBtn = document.getElementById('singularity-btn');
+                    if(singularityBtn) {
+                        const hasEnough = (Game.maxEssenceReached >= 1e8) || (Game.infinityPoints >= 1e8);
+                        if(hasEnough) {
+                            singularityBtn.style.display = 'block';
+                        }
+                    }
                     return;
                 }
                 const idx = Game.selectedRes; 
