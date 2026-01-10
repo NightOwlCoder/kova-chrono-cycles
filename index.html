@@ -47,6 +47,9 @@
         }
         @keyframes load { 0% { width: 0%; } 100% { width: 100%; } }
         @keyframes pulse { from { opacity: 0.5; text-shadow: 0 0 10px #40e0d0; } to { opacity: 1; text-shadow: 0 0 30px #40e0d0; } }
+        @keyframes pulse-glow { 0% { box-shadow: 0 0 10px rgba(189,0,255,0.5); } 50% { box-shadow: 0 0 25px rgba(189,0,255,0.9); } 100% { box-shadow: 0 0 10px rgba(189,0,255,0.5); } }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+        @keyframes text-glow { 0%, 100% { text-shadow: 0 0 20px rgba(255,255,255,0.8); } 50% { text-shadow: 0 0 30px rgba(255,255,255,1), 0 0 40px rgba(189,0,255,0.6); } }
 
         /* TOP RIGHT UI */
         .top-right-ui {
@@ -666,6 +669,43 @@
         <button class="toggle-btn" onclick="document.getElementById('autobuy-modal').classList.remove('open')">CLOSE</button>
     </div>
 
+    <!-- SINGULARITY COLLAPSE MODAL -->
+    <div id="singularity-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:900px; background:linear-gradient(135deg, rgba(10,0,30,0.98), rgba(30,0,50,0.98)); border:2px solid #bd00ff; box-shadow: 0 0 40px rgba(189,0,255,0.6);">
+            <div style="position:relative; overflow:hidden;">
+                <div class="modal-header" style="background:linear-gradient(135deg, #bd00ff, #8a00cc); padding:20px; text-align:center; position:relative;">
+                    <h2 style="margin:0; font-family:'Orbitron'; font-size:1.8rem; color:#fff; text-shadow: 0 0 20px rgba(255,255,255,0.8); animation: text-glow 2s ease-in-out infinite;">⚛️ SINGULARITY COLLAPSE</h2>
+                    <div style="margin-top:10px; font-size:0.9rem; color:#fff; opacity:0.9;">Collapse the Singularity to earn Void Cores and transcend beyond</div>
+                    <button class="close-btn" onclick="document.getElementById('singularity-modal').classList.remove('open')" style="position:absolute; top:10px; right:10px; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); color:#fff; padding:8px 15px; border-radius:5px; cursor:pointer; font-size:1rem;">✕</button>
+                </div>
+                
+                <div style="padding:25px;">
+                    <!-- Singularity Points Display -->
+                    <div style="background:rgba(189,0,255,0.1); border:2px solid #bd00ff; border-radius:10px; padding:20px; margin-bottom:20px; text-align:center; position:relative; overflow:hidden;">
+                        <div style="position:absolute; top:0; left:0; right:0; bottom:0; background:linear-gradient(45deg, transparent, rgba(189,0,255,0.1), transparent); animation: shimmer 3s infinite;"></div>
+                        <div style="font-size:0.9rem; color:#bd00ff; margin-bottom:8px; font-weight:bold;">VOID CORES</div>
+                        <div id="singularity-points-display" style="font-size:2.5rem; font-family:'Orbitron'; color:#fff; text-shadow: 0 0 15px rgba(189,0,255,0.8); font-weight:bold;">0</div>
+                        <div style="margin-top:10px; font-size:0.85rem; color:#aaa;">Maximum Essence Reached: <span id="max-essence-display" style="color:#bd00ff;">0</span></div>
+                        <div style="margin-top:8px; font-size:0.85rem; color:#aaa;">Next Collapse: <span id="singularity-pending" style="color:#0ff;">+0 Void Cores</span></div>
+                    </div>
+                    
+                    <!-- Prestige Button -->
+                    <button id="singularity-prestige-btn" onclick="Game.doSingularityCollapse()" onmouseenter="this.style.transform='scale(1.02)'; this.style.boxShadow='0 0 40px rgba(189,0,255,0.8)';" onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 0 30px rgba(189,0,255,0.5)';" style="width:100%; padding:20px; font-size:1.3rem; font-family:'Orbitron'; background:linear-gradient(135deg, #bd00ff, #8a00cc); border:2px solid #fff; color:#fff; border-radius:10px; cursor:pointer; margin-bottom:25px; font-weight:bold; text-transform:uppercase; letter-spacing:2px; box-shadow: 0 0 30px rgba(189,0,255,0.5); transition:all 0.3s; position:relative; overflow:hidden;" disabled>
+                        <span style="position:relative; z-index:1;">COLLAPSE SINGULARITY</span>
+                    </button>
+                    
+                    <!-- Upgrades Section -->
+                    <div style="border-top:2px solid rgba(189,0,255,0.3); padding-top:20px;">
+                        <div style="font-size:1.2rem; font-family:'Orbitron'; color:#bd00ff; margin-bottom:15px; text-align:center;">VOID CORE UPGRADES</div>
+                        <div id="singularity-upgrades" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:15px;">
+                            <!-- Upgrades will be generated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <canvas id="game-canvas"></canvas>
 
     <div id="lore-box">
@@ -726,6 +766,10 @@
                 
                 <button class="forge-open-btn" id="forge-open-btn" onclick="document.getElementById('forge-modal').classList.add('open'); UI.updateForgeUI()">
                     ⚒️ OPEN INFINITY FORGE
+                </button>
+                
+                <button class="forge-open-btn" id="singularity-btn" onclick="document.getElementById('singularity-modal').classList.add('open'); UI.updateSingularityUI()" style="display:none; background:linear-gradient(135deg, #bd00ff, #8a00cc); border-color:#bd00ff; color:#fff; animation: pulse-glow 2s ease-in-out infinite;">
+                    ⚛️ SINGULARITY COLLAPSE
                 </button>
                 
                 <button class="forge-open-btn" id="challenges-open-btn" onclick="document.getElementById('challenges-modal').classList.add('open'); UI.buildChallenges()" style="display:none; background:linear-gradient(135deg, #ffd700, #ffaa00); border-color:#ffd700; color:#000;">
@@ -909,7 +953,9 @@
 
         const Game = {
             dimension: 0, resources: new Array(10).fill(0), rings: [], unlockedLayers: 1, selectedRes: 0, selectedRPM: 0, 
-            lastTime: performance.now(), buyAmount: 1, chronons: 0, infinityPoints: 0, 
+            lastTime: performance.now(), buyAmount: 1, chronons: 0, infinityPoints: 0,
+            singularityPoints: 0, maxEssenceReached: 0, // Singularity Collapse prestige
+            singularityUpgrades: { resonance: 0, efficiency: 0, density: 0, cascade: 0 }, // Prestige upgrades 
             autoBuyEnabled: true,
             layerAutoBuy: new Array(10).fill(false),
             layerAutoBuyPurchased: new Array(10).fill(false), // Track if auto-buy was purchased
@@ -1311,6 +1357,40 @@
                 }
             },
 
+            doSingularityCollapse() {
+                // Only available in Infinity dimension
+                if(this.dimension !== 1) return;
+                
+                // Require at least 1 billion essence to prestige
+                if(this.maxEssenceReached < 1e9) return;
+                
+                // Calculate Void Cores: log10(maxEssence / 1e9) * multiplier
+                // Similar to Chronons but for Infinity
+                let voidCores = Math.floor(Math.log10(Math.max(1, this.maxEssenceReached / 1e9)) * 2.5);
+                
+                if(confirm(`COLLAPSE SINGULARITY? You will lose ALL Infinity upgrades and Essence. You will gain ${voidCores} Void Cores.`)) {
+                    // Add Void Cores BEFORE reset
+                    this.singularityPoints += voidCores;
+                    
+                    // Reset Infinity state
+                    this.infinityPoints = 0;
+                    this.maxEssenceReached = 0;
+                    this.infUpgrades = { weave: 0, void: 0, particles: 0, clickGain: 0 };
+                    this.cosmicParticles = [];
+                    this.voidParticles = [];
+                    this.blackHoleSize = 10;
+                    this.blackHoleMass = 0;
+                    this.blackHoleCombo = 0;
+                    
+                    this.save();
+                    UI.buildInfinityUpgrades();
+                    UI.updateSingularityUI();
+                    UI.updateMainDisplay();
+                    
+                    Achievements.show("SINGULARITY COLLAPSED", `Gained ${voidCores} Void Cores!`, "#bd00ff");
+                }
+            },
+
             overclockLayer(idx) {
                 if(confirm(`Purify ${CONFIG.layers[idx].name}? Resets upgrades AND currency but grants +50% Multiplier.`)) {
                     this.rings[idx].upgrades.speed = 0;
@@ -1630,7 +1710,7 @@
                 if(this._isResetting) return;
                 
                 const saveData = {
-                    version: 8.3,
+                    version: 8.4,
                     resources: this.resources,
                     rings: this.rings,
                     chronons: this.chronons,
@@ -1645,6 +1725,9 @@
                     blackHoleMass: this.blackHoleMass,
                     infUpgrades: this.infUpgrades,
                     cosmicParticles: this.cosmicParticles,
+                    singularityPoints: this.singularityPoints,
+                    maxEssenceReached: this.maxEssenceReached,
+                    singularityUpgrades: this.singularityUpgrades,
                     reality: this.reality,
                     artifacts: this.artifacts,
                     profiles: this.profiles,
@@ -1686,6 +1769,12 @@
                         this.infUpgrades = data.infUpgrades;
                         if(!this.infUpgrades.particles) this.infUpgrades.particles = 0;
                     }
+                    if(data.singularityPoints !== undefined) this.singularityPoints = data.singularityPoints;
+                    else this.singularityPoints = 0;
+                    if(data.maxEssenceReached !== undefined) this.maxEssenceReached = data.maxEssenceReached;
+                    else this.maxEssenceReached = 0;
+                    if(data.singularityUpgrades !== undefined) this.singularityUpgrades = data.singularityUpgrades;
+                    else this.singularityUpgrades = { resonance: 0, efficiency: 0, density: 0, cascade: 0 };
                     if(data.cosmicParticles) {
                         // Randomize cosmic particles positions on load so they're not all in sync
                         this.cosmicParticles = data.cosmicParticles.map(p => {
@@ -1809,6 +1898,7 @@
                     document.getElementById('reality-btn').style.display = (this.infinityPoints >= 1e12 || this.artifacts.prism) ? 'block' : 'none';
                     // Hide warp button in infinity dimension
                     document.getElementById('warp-btn').style.display = 'none';
+                    UI.updateSingularityUI(); // Update Singularity button visibility
                     document.getElementById('game-title').innerText = "INFINITY ENGINE";
                     document.getElementById('game-title').style.color = "#bd00ff";
                     document.querySelector('.currency-select').style.pointerEvents = "none";
@@ -1970,13 +2060,24 @@
                     
                     UI.updateComboUI();
 
+                    // Track max essence reached for Singularity Collapse
+                    if(this.dimension === 1 && this.infinityPoints > this.maxEssenceReached) {
+                        this.maxEssenceReached = this.infinityPoints;
+                    }
+
                     // PARTICLE LOGIC (VOID SIPHON) - EXPONENTIAL BUFF
                     if (this.dimension === 1) {
                         // Math: 1.5 ^ level - increased max particles for more visual density
-                        const targetCount = Math.min(150, Math.floor(Math.pow(1.5, this.infUpgrades.void)) * 3);
+                        // Particle Density: adds starting particles
+                        const densityBonus = (this.singularityUpgrades.density || 0) * 5;
+                        const targetCount = Math.min(150, Math.floor(Math.pow(1.5, this.infUpgrades.void)) * 3 + densityBonus);
                         // Auto-gain from high levels without particles (exponential)
-                        if(this.infUpgrades.void > 10) {
-                            let autoGain = Math.pow(1.8, this.infUpgrades.void) * dt;
+                        // Essence Cascade: lowers activation level
+                        const cascadeLevel = this.singularityUpgrades.cascade || 0;
+                        const activationLevel = Math.max(1, 10 - cascadeLevel * 2);
+                        if(this.infUpgrades.void > activationLevel) {
+                            const resonanceMult = 1 + ((this.singularityUpgrades.resonance || 0) * 0.1);
+                            let autoGain = Math.pow(1.8, this.infUpgrades.void) * dt * resonanceMult;
                             this.infinityPoints += autoGain;
                             // Track gain for rate calculation (void_auto doesn't have combo, so use 1.0)
                             this._essenceGainHistory = this._essenceGainHistory || [];
@@ -2023,7 +2124,8 @@
                             if(dist < 20) {
                                 // Void particles gain essence with click combo boost
                                 const comboBoost = 1 + (this.blackHoleCombo || 0); // Click combo boost
-                                let voidGain = 1 * (this.eventEssenceMult || 1) * comboBoost;
+                                const resonanceMult = 1 + ((this.singularityUpgrades.resonance || 0) * 0.1); // Void Resonance upgrade
+                                let voidGain = 1 * (this.eventEssenceMult || 1) * comboBoost * resonanceMult;
                                 this.infinityPoints += voidGain;
                                 // Track gain for rate calculation (include combo for scaling)
                                 this._essenceGainHistory = this._essenceGainHistory || [];
@@ -2106,7 +2208,8 @@
                                 const baseCosmicGain = 5;
                                 const exponentialMult = Math.pow(1.5, particleLevel); // 1.5x per level
                                 const comboBoost = 1 + (this.blackHoleCombo || 0); // Click combo boost
-                                let cosmicGain = baseCosmicGain * exponentialMult * (this.eventEssenceMult || 1) * comboBoost;
+                                const resonanceMult = 1 + ((this.singularityUpgrades.resonance || 0) * 0.1); // Void Resonance upgrade
+                                let cosmicGain = baseCosmicGain * exponentialMult * (this.eventEssenceMult || 1) * comboBoost * resonanceMult;
                                 this.infinityPoints += cosmicGain;
                                 // Track gain for rate calculation (include combo for scaling)
                                 this._essenceGainHistory = this._essenceGainHistory || [];
@@ -3220,9 +3323,11 @@
                 con.appendChild(header);
                 
                 // Nerfed: exponential growth starts slower, scales harder after 1k essence
+                // Quantum Efficiency: reduces cost scaling
                 let level = Game.infUpgrades.void;
-                // After level 10 (around 1k essence), cost scales much faster
+                const efficiencyMult = Math.pow(1 - (Game.singularityUpgrades.efficiency || 0) * 0.05, level);
                 let cost1 = level < 10 ? (10 * Math.pow(1.5, level)) : (10 * Math.pow(1.5, 10) * Math.pow(3.0, level - 10));
+                cost1 = Math.floor(cost1 * efficiencyMult);
                 const card1 = document.createElement('div'); card1.className = 'upgrade-card';
                 card1.style.borderColor = '#bd00ff';
                 card1.dataset.cost = cost1; // Store cost for button state checking
@@ -3658,6 +3763,131 @@
                         card.classList.add('locked');
                         card.style.pointerEvents = 'none';
                     }
+                });
+            },
+            updateSingularityUI() {
+                // Update Singularity Collapse UI
+                const modal = document.getElementById('singularity-modal');
+                if(!modal) return;
+                
+                // Update displays
+                document.getElementById('singularity-points-display').innerText = Format(Game.singularityPoints || 0);
+                document.getElementById('max-essence-display').innerText = Format(Game.maxEssenceReached || 0);
+                
+                // Calculate pending Void Cores
+                let pending = 0;
+                if(Game.maxEssenceReached >= 1e9) {
+                    pending = Math.floor(Math.log10(Math.max(1, Game.maxEssenceReached / 1e9)) * 2.5);
+                }
+                document.getElementById('singularity-pending').innerText = `+${Format(pending)} Void Cores`;
+                
+                // Update prestige button
+                const btn = document.getElementById('singularity-prestige-btn');
+                if(btn) {
+                    if(Game.maxEssenceReached >= 1e9 && Game.dimension === 1) {
+                        btn.disabled = false;
+                        btn.innerText = `COLLAPSE SINGULARITY (+${Format(pending)})`;
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                    } else {
+                        btn.disabled = true;
+                        btn.innerText = 'COLLAPSE SINGULARITY (Requires 1B Essence)';
+                        btn.style.opacity = '0.6';
+                        btn.style.cursor = 'not-allowed';
+                    }
+                }
+                
+                // Build upgrades
+                this.buildSingularityUpgrades();
+                
+                // Show/hide button based on dimension
+                const singularityBtn = document.getElementById('singularity-btn');
+                if(singularityBtn) {
+                    singularityBtn.style.display = (Game.dimension === 1 && Game.maxEssenceReached >= 1e8) ? 'block' : 'none';
+                }
+            },
+            buildSingularityUpgrades() {
+                const con = document.getElementById('singularity-upgrades');
+                if(!con) return;
+                con.innerHTML = '';
+                
+                const upgrades = [
+                    {
+                        id: 'resonance',
+                        name: 'Void Resonance',
+                        desc: 'Base essence gain multiplier',
+                        icon: '⚡',
+                        getCost: (level) => Math.floor(1 * Math.pow(2, level)),
+                        getEffect: (level) => `x${(1 + level * 0.1).toFixed(1)}`,
+                        color: '#bd00ff'
+                    },
+                    {
+                        id: 'efficiency',
+                        name: 'Quantum Efficiency',
+                        desc: 'Upgrade costs scale slower',
+                        icon: '⚛️',
+                        getCost: (level) => Math.floor(2 * Math.pow(2, level)),
+                        getEffect: (level) => `x${(1 - level * 0.05).toFixed(2)} cost scaling`,
+                        color: '#0ff'
+                    },
+                    {
+                        id: 'density',
+                        name: 'Particle Density',
+                        desc: 'Start with more void particles',
+                        icon: '✨',
+                        getCost: (level) => Math.floor(3 * Math.pow(2, level)),
+                        getEffect: (level) => `+${level * 5} starting particles`,
+                        color: '#ff6b9d'
+                    },
+                    {
+                        id: 'cascade',
+                        name: 'Essence Cascade',
+                        desc: 'Auto-gain activates earlier/stronger',
+                        icon: '🌊',
+                        getCost: (level) => Math.floor(5 * Math.pow(2, level)),
+                        getEffect: (level) => `Level ${Math.max(1, 10 - level * 2)} activation`,
+                        color: '#ffd700'
+                    }
+                ];
+                
+                upgrades.forEach(upgrade => {
+                    const level = Game.singularityUpgrades[upgrade.id] || 0;
+                    const cost = upgrade.getCost(level);
+                    const effect = upgrade.getEffect(level);
+                    
+                    const card = document.createElement('div');
+                    card.style.cssText = 'background:rgba(189,0,255,0.1); border:2px solid ' + upgrade.color + '; border-radius:10px; padding:15px; position:relative; overflow:hidden; transition:all 0.3s;';
+                    card.innerHTML = `
+                        <div style="font-size:1.5rem; margin-bottom:8px;">${upgrade.icon}</div>
+                        <div style="font-family:"Orbitron"; font-size:1.1rem; color:#fff; font-weight:bold; margin-bottom:5px;">${upgrade.name}</div>
+                        <div style="font-size:0.85rem; color:#aaa; margin-bottom:10px;">${upgrade.desc}</div>
+                        <div style="font-size:0.9rem; color:${upgrade.color}; margin-bottom:10px; font-weight:bold;">Effect: ${effect}</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                            <span style="font-size:0.85rem; color:#aaa;">Level ${level}</span>
+                            <button class="singularity-upgrade-btn" data-upgrade="${upgrade.id}" style="background:${upgrade.color}; border:none; color:#fff; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold; transition:all 0.3s;" ${Game.singularityPoints < cost ? 'disabled' : ''}>Buy (${Format(cost)})</button>
+                        </div>
+                    `;
+                    
+                    if(Game.singularityPoints < cost) {
+                        card.style.opacity = '0.6';
+                        card.querySelector('button').style.opacity = '0.5';
+                        card.querySelector('button').style.cursor = 'not-allowed';
+                    } else {
+                        card.style.cursor = 'pointer';
+                        card.onmouseenter = () => card.style.transform = 'translateY(-3px)';
+                        card.onmouseleave = () => card.style.transform = 'translateY(0)';
+                        card.querySelector('button').onclick = (e) => {
+                            e.stopPropagation();
+                            if(Game.singularityPoints >= cost) {
+                                Game.singularityPoints -= cost;
+                                Game.singularityUpgrades[upgrade.id] = (Game.singularityUpgrades[upgrade.id] || 0) + 1;
+                                Game.save();
+                                this.updateSingularityUI();
+                            }
+                        };
+                    }
+                    
+                    con.appendChild(card);
                 });
             },
             updateMainDisplay() {
