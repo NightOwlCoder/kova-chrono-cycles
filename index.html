@@ -679,12 +679,12 @@
 
     <!-- SINGULARITY COLLAPSE MODAL -->
     <div id="singularity-modal" class="modal" style="display:none;">
-        <div class="modal-content" style="max-width:900px; background:linear-gradient(135deg, rgba(10,0,30,0.98), rgba(30,0,50,0.98)); border:2px solid #bd00ff; box-shadow: 0 0 40px rgba(189,0,255,0.6);">
+        <div class="modal-content" style="width:auto; max-width:95vw; min-width:600px; background:linear-gradient(135deg, rgba(10,0,30,0.98), rgba(30,0,50,0.98)); border:2px solid #bd00ff; box-shadow: 0 0 40px rgba(189,0,255,0.6);">
             <div style="position:relative; overflow:hidden;">
                 <div class="modal-header" style="background:linear-gradient(135deg, #bd00ff, #8a00cc); padding:20px; text-align:center; position:relative;">
                     <h2 style="margin:0; font-family:'Orbitron'; font-size:1.8rem; color:#fff; text-shadow: 0 0 20px rgba(255,255,255,0.8); animation: text-glow 2s ease-in-out infinite;">⚛️ SINGULARITY COLLAPSE</h2>
                     <div style="margin-top:10px; font-size:0.9rem; color:#fff; opacity:0.9;">Collapse the Singularity to earn Void Cores and transcend beyond</div>
-                    <button class="close-btn" onclick="document.getElementById('singularity-modal').classList.remove('open')" style="position:absolute; top:10px; right:10px; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); color:#fff; padding:8px 15px; border-radius:5px; cursor:pointer; font-size:1rem;">✕</button>
+                    <button class="close-btn" onclick="UI.closeSingularityModal()" style="position:absolute; top:10px; right:10px; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); color:#fff; padding:8px 15px; border-radius:5px; cursor:pointer; font-size:1.2rem; font-weight:bold; z-index:10;">✕</button>
                 </div>
                 
                 <div style="padding:25px;">
@@ -698,7 +698,7 @@
                     </div>
                     
                     <!-- Prestige Button -->
-                    <button id="singularity-prestige-btn" onclick="Game.doSingularityCollapse()" onmouseenter="this.style.transform='scale(1.02)'; this.style.boxShadow='0 0 40px rgba(189,0,255,0.8)';" onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 0 30px rgba(189,0,255,0.5)';" style="width:100%; padding:20px; font-size:1.3rem; font-family:'Orbitron'; background:linear-gradient(135deg, #bd00ff, #8a00cc); border:2px solid #fff; color:#fff; border-radius:10px; cursor:pointer; margin-bottom:25px; font-weight:bold; text-transform:uppercase; letter-spacing:2px; box-shadow: 0 0 30px rgba(189,0,255,0.5); transition:all 0.3s; position:relative; overflow:hidden;" disabled>
+                    <button id="singularity-prestige-btn" onclick="Game.doSingularityCollapse(); UI.closeSingularityModal();" onmouseenter="this.style.transform='scale(1.02)'; this.style.boxShadow='0 0 40px rgba(189,0,255,0.8)';" onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 0 30px rgba(189,0,255,0.5)';" style="width:100%; padding:20px; font-size:1.3rem; font-family:'Orbitron'; background:linear-gradient(135deg, #bd00ff, #8a00cc); border:2px solid #fff; color:#fff; border-radius:10px; cursor:pointer; margin-bottom:25px; font-weight:bold; text-transform:uppercase; letter-spacing:2px; box-shadow: 0 0 30px rgba(189,0,255,0.5); transition:all 0.3s; position:relative; overflow:hidden;" disabled>
                         <span style="position:relative; z-index:1;">COLLAPSE SINGULARITY</span>
                     </button>
                     
@@ -727,7 +727,7 @@
         <div id="cosmic-particle-rate" style="color:#0ff; margin-top:3px;">Cosmic: +0/s</div>
     </div>
     
-    <button id="manual-btn" onclick="document.getElementById('manual-modal').classList.add('open')">📖</button>
+    <button id="manual-btn" onclick="UI.toggleManual()">📖</button>
 
     <div class="ui-layer">
         
@@ -1413,8 +1413,7 @@
                     UI.updateMainDisplay();
                     
                     // Close modal after collapse
-                    const modal = document.getElementById('singularity-modal');
-                    if(modal) modal.classList.remove('open');
+                    UI.closeSingularityModal();
                     
                     Achievements.show("SINGULARITY COLLAPSED", `Gained ${voidCores} Void Cores!`, "#bd00ff");
                 }
@@ -3880,6 +3879,25 @@
                     this.updateSingularityUI();
                     modal.classList.add('open');
                     modal.style.display = 'flex';
+                }
+            },
+            closeSingularityModal() {
+                const modal = document.getElementById('singularity-modal');
+                if(modal) {
+                    modal.classList.remove('open');
+                    modal.style.display = 'none';
+                }
+            },
+            toggleManual() {
+                const modal = document.getElementById('manual-modal');
+                if(modal) {
+                    if(modal.classList.contains('open')) {
+                        modal.classList.remove('open');
+                        modal.style.display = 'none';
+                    } else {
+                        modal.classList.add('open');
+                        modal.style.display = 'flex';
+                    }
                 }
             },
             buildSingularityUpgrades() {
