@@ -1159,6 +1159,7 @@
                     document.getElementById('forge-open-btn').style.display = 'none';
                     document.getElementById('challenges-open-btn').style.display = 'block';
                     document.getElementById('profile-btn').style.display = 'block';
+                    document.getElementById('click-combo-container').style.display = 'block';
                     
                     document.getElementById('game-title').innerText = "REALITY ENGINE";
                     document.getElementById('game-title').style.color = "#ffd700";
@@ -1166,6 +1167,7 @@
                     UI.buildUpgrades(); // Will build Reality Upgrades now
                     UI.updateRPMList(); 
                     UI.updateCurrList(); 
+                    UI.updateComboUI();
                     
                     // Switch to Reality Shards display
                     UI.selectCurr(10); 
@@ -1186,12 +1188,14 @@
                     document.querySelector('.currency-select').style.pointerEvents = "auto";
                     document.getElementById('forge-open-btn').style.display = 'none';
                     document.getElementById('particle-info').style.display = 'none';
+                    document.getElementById('click-combo-container').style.display = 'block';
                     document.getElementById('game-title').innerText = "CHRONO ENGINE";
                     document.getElementById('game-title').style.color = "#fff";
                     
                     UI.buildUpgrades(); UI.updateRPMList(); UI.updateCurrList(); UI.selectCurr(0);
                     UI.updatePrestigeUI();
-                    UI.updateDimensionUI(); 
+                    UI.updateDimensionUI();
+                    UI.updateComboUI();
                     load.style.opacity = 0; setTimeout(() => load.style.display = 'none', 1000);
                 }, 3000);
             },
@@ -1667,10 +1671,12 @@
                     document.getElementById('forge-open-btn').style.display = 'none';
                     document.getElementById('challenges-open-btn').style.display = 'block';
                     document.getElementById('profile-btn').style.display = 'block';
+                    document.getElementById('click-combo-container').style.display = 'block';
                     document.getElementById('game-title').innerText = "REALITY ENGINE";
                     document.getElementById('game-title').style.color = "#ffd700";
                     UI.buildUpgrades();
                     UI.selectCurr(10);
+                    UI.updateComboUI();
                 }
                 UI.updateDimensionUI();
             },
@@ -1817,19 +1823,22 @@
                             let dy = (window.innerHeight/2) - p.y;
                             let dist = Math.sqrt(dx*dx + dy*dy);
                             
-                            // Spiral around blackhole - orbital mechanics
+                            // Spiral around blackhole - orbital mechanics (much faster)
                             let angleToCenter = Math.atan2(dy, dx);
                             let tangentialAngle = angleToCenter + Math.PI / 2; // Perpendicular to radius
                             
-                            // Orbital velocity (faster as it gets closer)
-                            let orbitalSpeed = 8 + (1 - dist / (Math.max(window.innerWidth, window.innerHeight) / 2)) * 12;
-                            let radialSpeed = 4; // Inward pull
+                            // Orbital velocity (faster as it gets closer) - increased speeds
+                            let orbitalSpeed = 20 + (1 - dist / (Math.max(window.innerWidth, window.innerHeight) / 2)) * 30;
+                            let radialSpeed = 12; // Inward pull - much faster
                             
-                            // Combine orbital and radial motion
-                            p.x += Math.cos(tangentialAngle) * orbitalSpeed * 0.05 + Math.cos(angleToCenter) * radialSpeed * 0.02;
-                            p.y += Math.sin(tangentialAngle) * orbitalSpeed * 0.05 + Math.sin(angleToCenter) * radialSpeed * 0.02;
+                            // Combine orbital and radial motion - faster multipliers
+                            p.x += Math.cos(tangentialAngle) * orbitalSpeed * 0.08 + Math.cos(angleToCenter) * radialSpeed * 0.06;
+                            p.y += Math.sin(tangentialAngle) * orbitalSpeed * 0.08 + Math.sin(angleToCenter) * radialSpeed * 0.06;
                             
                             if(dist < this.blackHoleSize + 10) {
+                                // Particle absorbed - give essence (more than void particles)
+                                this.infinityPoints += 3; // Cosmic particles give 3x more than void
+                                UI.updateMainDisplay();
                                 // Particle absorbed, respawn
                                 let ang = Math.random() * Math.PI * 2;
                                 let r = Math.max(window.innerWidth, window.innerHeight) / 2;
@@ -2668,11 +2677,11 @@
                 
                 // Calculate void particle rate (1 per particle per second, with artifact multiplier)
                 let voidRate = (Game.voidParticles ? Game.voidParticles.length : 0) * (Game.artifacts && Game.artifacts.crystal ? 2 : 1);
-                // Cosmic particles don't give essence directly, but show their count
-                let cosmicCount = (Game.cosmicParticles ? Game.cosmicParticles.length : 0);
+                // Cosmic particles give 3 essence per particle per second (they move faster so absorb faster)
+                let cosmicRate = (Game.cosmicParticles ? Game.cosmicParticles.length : 0) * 3 * (Game.artifacts && Game.artifacts.crystal ? 2 : 1);
                 
                 document.getElementById('void-particle-rate').innerText = `Void: +${Format(voidRate)}/s`;
-                document.getElementById('cosmic-particle-rate').innerText = `Cosmic: ${cosmicCount} active`;
+                document.getElementById('cosmic-particle-rate').innerText = `Cosmic: +${Format(cosmicRate)}/s`;
             },
             spawnComboText(text, x, y) {
                 const el = document.createElement('div');
