@@ -1659,6 +1659,19 @@
                     }
                     if(data.cosmicParticles) this.cosmicParticles = data.cosmicParticles;
                     else this.cosmicParticles = [];
+                    if(data.voidParticles) {
+                        // Randomize void particles positions on load so they're not all in sync
+                        this.voidParticles = data.voidParticles;
+                        this.voidParticles.forEach(p => {
+                            // Randomize position slightly to desync them
+                            const offsetX = (Math.random() - 0.5) * 300;
+                            const offsetY = (Math.random() - 0.5) * 300;
+                            p.x += offsetX;
+                            p.y += offsetY;
+                        });
+                    } else {
+                        this.voidParticles = [];
+                    }
                     if(data.reality !== undefined) this.reality = data.reality;
                     if(data.artifacts !== undefined) this.artifacts = data.artifacts;
                     
@@ -1928,6 +1941,7 @@
                             this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                         }
 
+                        // Spawn particles - they spawn with random positions so they're desynced
                         while (this.voidParticles.length < targetCount) {
                             Renderer.spawnVoidParticle();
                         }
@@ -1994,8 +2008,8 @@
                             p.y += Math.sin(tangentialAngle) * orbitalSpeed * 0.08 + Math.sin(angleToCenter) * radialSpeed * 0.06;
                             
                             if(dist < this.blackHoleSize + 10) {
-                                // Particle absorbed - give essence (more than void particles)
-                                let cosmicGain = 3 * (this.eventEssenceMult || 1); // Cosmic particles give 3x more than void
+                                // Particle absorbed - give essence (5x more than void particles)
+                                let cosmicGain = 5 * (this.eventEssenceMult || 1); // Cosmic particles give 5x more than void
                                 this.infinityPoints += cosmicGain;
                                 // Track gain for rate calculation
                                 this._essenceGainHistory = this._essenceGainHistory || [];
@@ -3057,6 +3071,9 @@
                 if(Game.infinityPoints < cost1) {
                     card1.classList.add('locked');
                     card1.style.pointerEvents = 'none';
+                } else {
+                    card1.classList.remove('locked');
+                    card1.style.pointerEvents = 'auto';
                 }
                 card1.onclick = (e) => {
                     e.stopPropagation();
@@ -3077,6 +3094,9 @@
                 if(Game.infinityPoints < cost2) {
                     card2.classList.add('locked');
                     card2.style.pointerEvents = 'none';
+                } else {
+                    card2.classList.remove('locked');
+                    card2.style.pointerEvents = 'auto';
                 }
                 card2.onclick = (e) => {
                     e.stopPropagation();
@@ -3095,10 +3115,13 @@
                 const card3 = document.createElement('div'); card3.className = 'upgrade-card';
                 card3.style.borderColor = '#0ff';
                 card3.innerHTML = `<div class="u-info"><span class="u-name">Cosmic Particles</span><span class="u-desc">Beautiful particles that spiral into the blackhole. ${Game.infUpgrades.particles || 0} particles active.</span></div><div class="u-meta"><span class="u-cost">${Format(cost3)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.particles || 0}</span></div>`;
-                if(Game.infinityPoints < cost3) {
-                    card3.classList.add('locked');
-                    card3.style.pointerEvents = 'none';
-                }
+                    if(Game.infinityPoints < cost3) {
+                        card3.classList.add('locked');
+                        card3.style.pointerEvents = 'none';
+                    } else {
+                        card3.classList.remove('locked');
+                        card3.style.pointerEvents = 'auto';
+                    }
                 card3.onclick = (e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -3118,10 +3141,13 @@
                 card4.style.borderColor = '#ff6b9d';
                 let clickMult = Game.infUpgrades.clickGain || 0;
                 card4.innerHTML = `<div class="u-info"><span class="u-name">Quantum Amplifier</span><span class="u-desc">Increases Essence gained per blackhole click. x${(Math.pow(1.5, clickMult)).toFixed(2)} multiplier.</span></div><div class="u-meta"><span class="u-cost">${Format(cost4)} Essence</span><span class="u-lvl">LVL ${clickMult}</span></div>`;
-                if(Game.infinityPoints < cost4) {
-                    card4.classList.add('locked');
-                    card4.style.pointerEvents = 'none';
-                }
+                    if(Game.infinityPoints < cost4) {
+                        card4.classList.add('locked');
+                        card4.style.pointerEvents = 'none';
+                    } else {
+                        card4.classList.remove('locked');
+                        card4.style.pointerEvents = 'auto';
+                    }
                 card4.onclick = (e) => {
                     e.stopPropagation();
                     e.preventDefault();
