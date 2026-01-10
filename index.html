@@ -2896,15 +2896,18 @@
                 const timeWindow = 2; // 2 seconds
                 const essencePerSecond = totalEssenceGain / timeWindow;
                 
-                // Split between void and cosmic based on gain amounts (void gives 1, cosmic gives 3)
+                // Split between void and cosmic based on gain amounts
+                // Void particles give 1 essence each (or 2 with crystal artifact)
+                // Cosmic particles give 3 essence each (or 6 with crystal artifact)
                 let voidGains = recentGains.filter(h => h.amount === 1 || h.amount === 2).reduce((sum, h) => sum + h.amount, 0);
-                let cosmicGains = recentGains.filter(h => h.amount === 3 || h.amount === 6).reduce((sum, h) => sum + h.amount, 0);
+                let cosmicGains = recentGains.filter(h => h.amount === 3 || h.amount === 6 || h.amount >= 9).reduce((sum, h) => sum + h.amount, 0);
                 
+                // Show essence per second from each particle type
                 let voidRate = voidGains / timeWindow;
                 let cosmicRate = cosmicGains / timeWindow;
                 
-                document.getElementById('void-particle-rate').innerText = `Void: +${Format(voidRate)}/s`;
-                document.getElementById('cosmic-particle-rate').innerText = `Cosmic: +${Format(cosmicRate)}/s`;
+                document.getElementById('void-particle-rate').innerText = `Void Particles: +${Format(voidRate)} essence/s`;
+                document.getElementById('cosmic-particle-rate').innerText = `Cosmic Particles: +${Format(cosmicRate)} essence/s`;
             },
             spawnComboText(text, x, y) {
                 const el = document.createElement('div');
@@ -2952,7 +2955,7 @@
                     speedCard.id = 'reality-btn-speed';
                     speedCard.style.borderColor = '#ffd700';
                     speedCard.innerHTML = `<div class="u-info"><span class="u-name">Temporal Threads</span><span class="u-desc">Increases Reality Torque conversion.</span><span class="u-current">Current: +${(Game.reality.upgrades.speed * 20)}%</span></div><div class="u-meta"><span class="u-cost">${Format(speedCost)} Shards</span><span class="u-lvl">LVL ${Game.reality.upgrades.speed}</span></div>`;
-                    speedCard.onclick = () => Game.buyRealityUpgrade('speed');
+                    speedCard.onclick = (e) => { e.stopPropagation(); e.preventDefault(); Game.buyRealityUpgrade('speed'); };
                     if(Game.reality.shards < speedCost) { speedCard.classList.add('locked'); }
                     con.appendChild(speedCard);
 
@@ -2961,7 +2964,7 @@
                     valCard.id = 'reality-btn-value';
                     valCard.style.borderColor = '#ffd700';
                     valCard.innerHTML = `<div class="u-info"><span class="u-name">Universal Scales</span><span class="u-desc">Increases Shards per rotation.</span><span class="u-current">Current: +${(Game.reality.upgrades.value * 50)}%</span></div><div class="u-meta"><span class="u-cost">${Format(valCost)} Shards</span><span class="u-lvl">LVL ${Game.reality.upgrades.value}</span></div>`;
-                    valCard.onclick = () => Game.buyRealityUpgrade('value');
+                    valCard.onclick = (e) => { e.stopPropagation(); e.preventDefault(); Game.buyRealityUpgrade('value'); };
                     if(Game.reality.shards < valCost) { valCard.classList.add('locked'); }
                     con.appendChild(valCard);
                     
@@ -3036,7 +3039,9 @@
                     card1.classList.add('locked');
                     card1.style.pointerEvents = 'none';
                 }
-                card1.onclick = () => {
+                card1.onclick = (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     if(Game.infinityPoints >= cost1) { 
                         Game.infinityPoints -= cost1; 
                         Game.infUpgrades.void++; 
@@ -3054,7 +3059,9 @@
                     card2.classList.add('locked');
                     card2.style.pointerEvents = 'none';
                 }
-                card2.onclick = () => {
+                card2.onclick = (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     if(Game.infinityPoints >= cost2) { 
                         Game.infinityPoints -= cost2; 
                         Game.infUpgrades.weave++; 
@@ -3074,7 +3081,9 @@
                         card3.classList.add('locked');
                         card3.style.pointerEvents = 'none';
                     }
-                    card3.onclick = () => {
+                    card3.onclick = (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
                         if(Game.infinityPoints >= cost3) { 
                             Game.infinityPoints -= cost3; 
                             Game.infUpgrades.particles++; 
@@ -3096,7 +3105,8 @@
                         card4.classList.add('locked');
                         card4.style.pointerEvents = 'none';
                     }
-                    card4.onclick = () => {
+                    card4.onclick = (e) => {
+                        e.stopPropagation();
                         if(Game.infinityPoints >= cost4) { 
                             Game.infinityPoints -= cost4; 
                             if(!Game.infUpgrades.clickGain) Game.infUpgrades.clickGain = 0;
@@ -3427,12 +3437,34 @@
                     list.appendChild(item);
                 }
             },
+            updateInfinityButtonStates() {
+                // Update button states without rebuilding entire DOM
+                if(Game.dimension !== 1) return;
+                
+                const cards = document.querySelectorAll('#upgrades .upgrade-card');
+                cards.forEach(card => {
+                    const costText = card.querySelector('.u-cost');
+                    if(!costText) return;
+                    
+                    // Extract cost from text (remove " Essence" and parse)
+                    const costStr = costText.innerText.replace(/,/g, '').replace(/ Essence/g, '');
+                    const cost = parseFloat(costStr) || 0;
+                    
+                    if(Game.infinityPoints >= cost) {
+                        card.classList.remove('locked');
+                        card.style.pointerEvents = 'auto';
+                    } else {
+                        card.classList.add('locked');
+                        card.style.pointerEvents = 'none';
+                    }
+                });
+            },
             updateMainDisplay() {
                 if(Game.dimension === 1) {
                     document.getElementById('main-display-val').innerText = Format(Game.infinityPoints);
                     this.updateParticleRates();
-                    // Rebuild upgrades to update button states when essence changes
-                    this.buildInfinityUpgrades();
+                    // Update button states without rebuilding DOM to prevent hover issues
+                    this.updateInfinityButtonStates();
                     return;
                 }
                 const idx = Game.selectedRes; 
