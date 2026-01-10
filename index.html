@@ -557,6 +557,14 @@
                     <p>The <b>Star Chart</b> artifact accelerates this process significantly.</p>
                 </div>
             </div>
+
+            <div id="man-page-4" class="manual-page">
+                <div class="manual-header" style="color:#ff6b9d;">RANDOM EVENTS</div>
+                <div class="manual-text" id="events-library">
+                    <p>Random cosmic events occur during gameplay. Rare events are marked with ⭐.</p>
+                    <div id="events-list"></div>
+                </div>
+            </div>
         </div>
         <div style="text-align:right; margin-top:10px;">
             <button class="toggle-btn" style="width:auto; padding:5px 20px;" onclick="document.getElementById('manual-modal').classList.remove('open')">CLOSE DATABASE</button>
@@ -1127,7 +1135,7 @@
                     document.getElementById('warp-btn').style.display = 'none';
                     document.getElementById('return-btn').style.display = 'block';
                     document.getElementById('circle-ui-group').style.display = 'none';
-                    document.getElementById('click-combo-container').style.display = 'none';
+                    document.getElementById('click-combo-container').style.display = 'block';
                     document.getElementById('forge-open-btn').style.display = 'block';
                     
                     UI.buildInfinityUpgrades();
@@ -1137,6 +1145,7 @@
                     document.getElementById('main-display-val').style.color = "#bd00ff";
                     document.getElementById('main-display-val').innerText = Format(this.infinityPoints);
                     document.querySelector('.currency-select').style.pointerEvents = "none";
+                    UI.updateComboUI();
                     load.style.opacity = 0; setTimeout(() => load.style.display = 'none', 1000);
                 }, 3000);
             },
@@ -1196,6 +1205,14 @@
                     document.getElementById('game-title').innerText = "CHRONO ENGINE";
                     document.getElementById('game-title').style.color = "#fff";
                     
+                    // Show buttons if unlocked
+                    if(this.unlockedLayers >= 10 || (this.infinityPoints >= 1e12 || this.artifacts.prism)) {
+                        document.getElementById('warp-btn').style.display = 'block';
+                    }
+                    if(this.infinityPoints >= 1e12 || this.artifacts.prism) {
+                        document.getElementById('reality-btn').style.display = 'block';
+                    }
+                    
                     UI.buildUpgrades(); UI.updateRPMList(); UI.updateCurrList(); UI.selectCurr(0);
                     UI.updatePrestigeUI();
                     UI.updateDimensionUI();
@@ -1217,7 +1234,11 @@
                 const totalVal = this.getTotalValue();
                 // Exponential Chronon calculation: log10 of value/50000, multiplied by 10
                 // This makes it much harder to get Chronons as values increase
-                const pending = Math.floor(Math.log10(Math.max(1, totalVal / 50000)) * 3.14159);
+                let pending = Math.floor(Math.log10(Math.max(1, totalVal / 50000)) * 3.14159);
+                // Apply event multiplier if active
+                if(this.eventChrononMult && this.eventChrononMult > 1) {
+                    pending = Math.floor(pending * this.eventChrononMult);
+                }
                 
                 if(totalVal < 50000) return;
 
@@ -1591,7 +1612,8 @@
                     artifacts: this.artifacts,
                     profiles: this.profiles,
                     currentProfile: this.currentProfile,
-                    selectedRPM: this.selectedRPM
+                    selectedRPM: this.selectedRPM,
+                    encounteredEvents: this.encounteredEvents || []
                 };
                 localStorage.setItem('chronoCyclesSave', JSON.stringify(saveData));
             },
@@ -1627,6 +1649,8 @@
                     if(!this.profiles) this.profiles = { main: null, challenges: {} };
                     if(!this.currentProfile) this.currentProfile = 'main';
                     if(!this.selectedRPM) this.selectedRPM = 0;
+                    if(data.encounteredEvents) this.encounteredEvents = data.encounteredEvents;
+                    else this.encounteredEvents = [];
                     
                     // Restore UI state based on dimension
                     if(this.dimension !== undefined) {
@@ -1663,7 +1687,7 @@
                     document.getElementById('warp-btn').style.display = 'none';
                     document.getElementById('return-btn').style.display = 'block';
                     document.getElementById('circle-ui-group').style.display = 'none';
-                    document.getElementById('click-combo-container').style.display = 'none';
+                    document.getElementById('click-combo-container').style.display = 'block';
                     document.getElementById('forge-open-btn').style.display = 'block';
                     document.getElementById('reality-btn').style.display = (this.infinityPoints >= 1e12 || this.artifacts.prism) ? 'block' : 'none';
                     document.getElementById('game-title').innerText = "INFINITY ENGINE";
@@ -1675,6 +1699,7 @@
                     document.getElementById('particle-info').style.display = 'block';
                     UI.buildInfinityUpgrades();
                     UI.updateParticleRates();
+                    UI.updateComboUI();
                 } else if(dim === 2) {
                     // Reality
                     document.getElementById('return-btn').style.display = 'block';
@@ -1726,23 +1751,63 @@
 
             triggerEvent() {
                 const events = [
-                    { name: "SOLAR FLARE", desc: "Energy Production x2", type: "evt-solar", dur: 25, apply: (g) => g.eventMult = 2 },
-                    { name: "TIME DILATION", desc: "System Speed x0.5", type: "evt-time", dur: 20, apply: (g) => g.eventSpeed = 0.5 },
-                    { name: "KINETIC SURGE", desc: "System Speed x1.5", type: "evt-warp", dur: 20, apply: (g) => g.eventSpeed = 1.5 },
-                    { name: "METEOR SHOWER", desc: "Torque +50 to All Layers", type: "evt-solar", dur: 5, apply: (g) => g.rings.forEach(r => r.torque += 50) },
-                    { name: "COSMIC ALIGNMENT", desc: "Friction Reduced by 50%", type: "evt-void", dur: 25, apply: (g) => g.eventFriction = 0.5 },
-                    { name: "QUANTUM TUNNEL", desc: "Instant 60s Production", type: "evt-warp", dur: 3, apply: (g) => { 
+                    { name: "SOLAR FLARE", desc: "Energy Production x2", type: "evt-solar", dur: 25, rarity: 1, apply: (g) => g.eventMult = 2 },
+                    { name: "TIME DILATION", desc: "System Speed x0.5", type: "evt-time", dur: 20, rarity: 1, apply: (g) => g.eventSpeed = 0.5 },
+                    { name: "KINETIC SURGE", desc: "System Speed x1.5", type: "evt-warp", dur: 20, rarity: 1, apply: (g) => g.eventSpeed = 1.5 },
+                    { name: "METEOR SHOWER", desc: "Torque +50 to All Layers", type: "evt-solar", dur: 5, rarity: 1, apply: (g) => g.rings.forEach(r => r.torque += 50) },
+                    { name: "COSMIC ALIGNMENT", desc: "Friction Reduced by 50%", type: "evt-void", dur: 25, rarity: 1, apply: (g) => g.eventFriction = 0.5 },
+                    { name: "QUANTUM TUNNEL", desc: "Instant 60s Production", type: "evt-warp", dur: 3, rarity: 1, apply: (g) => { 
                         g.rings.forEach((r, i) => { if(i < 10) g.resources[i] += r.velocity * 60 * r.baseVal; });
                         UI.spawnText("QUANTUM SKIP!", 0, true);
                     }},
-                    { name: "KINETIC FRENZY", desc: "Clicking Adds 5% Current RPM (Stackable)", type: "evt-frenzy", dur: 20, apply: (g) => {} }
+                    { name: "KINETIC FRENZY", desc: "Clicking Adds 5% Current RPM (Stackable)", type: "evt-frenzy", dur: 20, rarity: 1, apply: (g) => {} },
+                    // RARE EVENTS (rarity 0.2 = 5x rarer)
+                    { name: "CHRONON STORM", desc: "Chronon gain x3 for next prestige", type: "evt-warp", dur: 30, rarity: 0.2, apply: (g) => g.eventChrononMult = 3 },
+                    { name: "PERFECT SYNC", desc: "All rings gain 1000 RPM instantly", type: "evt-solar", dur: 2, rarity: 0.2, apply: (g) => { 
+                        g.rings.forEach(r => r.velocity += 1000);
+                        UI.spawnText("PERFECT SYNC!", 0, true);
+                    }},
+                    { name: "TEMPORAL FLOOD", desc: "Resources gain x5 for 15s", type: "evt-warp", dur: 15, rarity: 0.3, apply: (g) => g.eventMult = 5 },
+                    { name: "VOID BREACH", desc: "Essence gain x10 in Infinity", type: "evt-void", dur: 20, rarity: 0.25, apply: (g) => g.eventEssenceMult = 10 },
+                    { name: "ZERO FRICTION", desc: "Friction = 0 for 10s", type: "evt-void", dur: 10, rarity: 0.3, apply: (g) => g.eventFriction = 0 },
+                    { name: "HYPERDRIVE", desc: "System Speed x3", type: "evt-warp", dur: 12, rarity: 0.25, apply: (g) => g.eventSpeed = 3 }
                 ];
-                const ev = events[Math.floor(Math.random() * events.length)];
+                
+                // Weighted random - rare events have lower chance
+                let totalWeight = 0;
+                events.forEach(e => {
+                    totalWeight += e.rarity || 1;
+                });
+                let rand = Math.random() * totalWeight;
+                let selectedEvent = null;
+                for(let e of events) {
+                    rand -= (e.rarity || 1);
+                    if(rand <= 0) {
+                        selectedEvent = e;
+                        break;
+                    }
+                }
+                if(!selectedEvent) selectedEvent = events[0];
+                
+                const ev = selectedEvent;
                 this.activeEvent = ev;
                 this.eventTimer = ev.dur;
                 this.eventTotalTime = ev.dur;
-                this.eventMult = 1; this.eventSpeed = 1; this.eventFriction = 1;
+                this.eventMult = 1; 
+                this.eventSpeed = 1; 
+                this.eventFriction = 1;
+                this.eventChrononMult = 1; 
+                this.eventEssenceMult = 1;
                 ev.apply(this);
+                
+                // Track encountered event
+                this.encounteredEvents = this.encounteredEvents || [];
+                if(!this.encounteredEvents.includes(ev.name)) {
+                    this.encounteredEvents.push(ev.name);
+                }
+                
+                // Update events library
+                UI.buildEventsLibrary();
                 
                 const banner = document.getElementById('event-banner');
                 banner.className = ""; 
@@ -1803,7 +1868,8 @@
                             let dist = Math.sqrt(dx*dx + dy*dy);
                             p.x += dx * 0.02; p.y += dy * 0.02;
                             if(dist < 20) {
-                                this.infinityPoints += 1;
+                                let voidGain = 1 * (this.eventEssenceMult || 1);
+                                this.infinityPoints += voidGain;
                                 UI.updateMainDisplay();
                                 let ang = Math.random() * Math.PI * 2;
                                 let r = Math.max(window.innerWidth, window.innerHeight)/1.5;
@@ -1851,7 +1917,8 @@
                             
                             if(dist < this.blackHoleSize + 10) {
                                 // Particle absorbed - give essence (more than void particles)
-                                this.infinityPoints += 3; // Cosmic particles give 3x more than void
+                                let cosmicGain = 3 * (this.eventEssenceMult || 1); // Cosmic particles give 3x more than void
+                                this.infinityPoints += cosmicGain;
                                 UI.updateMainDisplay();
                                 // Particle absorbed, respawn
                                 let ang = Math.random() * Math.PI * 2;
@@ -1883,6 +1950,12 @@
                         document.getElementById('event-fill').style.width = pct + "%";
                         if(this.eventTimer <= 0) {
                             this.activeEvent = null;
+                            // Reset event multipliers
+                            this.eventMult = 1;
+                            this.eventSpeed = 1;
+                            this.eventFriction = 1;
+                            this.eventChrononMult = 1;
+                            this.eventEssenceMult = 1;
                             this.eventMult = 1; this.eventSpeed = 1; this.eventFriction = 1;
                             document.getElementById('event-banner').classList.remove('active');
                         }
@@ -2684,6 +2757,42 @@
                         document.getElementById('click-combo-container').style.opacity = 0;
                     }
                 }
+            },
+            buildEventsLibrary() {
+                const list = document.getElementById('events-list');
+                if(!list) return;
+                
+                // All possible events
+                const allEvents = [
+                    { name: "SOLAR FLARE", desc: "Energy Production x2", rarity: 1 },
+                    { name: "TIME DILATION", desc: "System Speed x0.5", rarity: 1 },
+                    { name: "KINETIC SURGE", desc: "System Speed x1.5", rarity: 1 },
+                    { name: "METEOR SHOWER", desc: "Torque +50 to All Layers", rarity: 1 },
+                    { name: "COSMIC ALIGNMENT", desc: "Friction Reduced by 50%", rarity: 1 },
+                    { name: "QUANTUM TUNNEL", desc: "Instant 60s Production", rarity: 1 },
+                    { name: "KINETIC FRENZY", desc: "Clicking Adds 5% Current RPM (Stackable)", rarity: 1 },
+                    { name: "CHRONON STORM", desc: "Chronon gain x3 for next prestige", rarity: 0.2, rare: true },
+                    { name: "PERFECT SYNC", desc: "All rings gain 1000 RPM instantly", rarity: 0.2, rare: true },
+                    { name: "TEMPORAL FLOOD", desc: "Resources gain x5 for 15s", rarity: 0.3, rare: true },
+                    { name: "VOID BREACH", desc: "Essence gain x10 in Infinity", rarity: 0.25, rare: true },
+                    { name: "ZERO FRICTION", desc: "Friction = 0 for 10s", rarity: 0.3, rare: true },
+                    { name: "HYPERDRIVE", desc: "System Speed x3", rarity: 0.25, rare: true }
+                ];
+                
+                list.innerHTML = '';
+                allEvents.forEach(ev => {
+                    const item = document.createElement('div');
+                    item.style.cssText = 'padding:8px; margin:5px 0; border:1px solid #444; border-radius:4px;';
+                    const encountered = Game.encounteredEvents && Game.encounteredEvents.includes(ev.name);
+                    if(encountered) {
+                        item.style.borderColor = ev.rare ? '#ffd700' : '#66ff66';
+                        item.innerHTML = `<div style="color:#fff; font-weight:bold;">${ev.rare ? '⭐ ' : ''}${ev.name}</div><div style="color:#aaa; font-size:0.85rem;">${ev.desc}</div>`;
+                    } else {
+                        item.style.borderColor = '#666';
+                        item.innerHTML = `<div style="color:#666; font-weight:bold;">❓ ???</div><div style="color:#555; font-size:0.85rem;">Event not yet encountered</div>`;
+                    }
+                    list.appendChild(item);
+                });
             },
             updateParticleRates() {
                 if(Game.dimension !== 1) {
