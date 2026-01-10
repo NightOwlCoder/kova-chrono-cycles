@@ -1090,8 +1090,9 @@
                     this.blackHoleComboGrace = 0.25;
                     
                     const comboBoost = 1 + this.blackHoleCombo;
-                    const clickMult = 1 + ((this.infUpgrades.clickGain || 0) * 0.5); // Infinity upgrade (multiplier, +50% per level)
-                    const totalGain = 1 * clickMult * comboBoost;
+                    const clickMult = Math.pow(1.5, this.infUpgrades.clickGain || 0); // Infinity upgrade (x1.5 per level, multiplicative)
+                    const eventMult = this.eventEssenceMult || 1;
+                    const totalGain = 1 * clickMult * comboBoost * eventMult;
                     
                     this.blackHoleMass += 1;
                     // Grow slower: use log base 1.5, and increase max size to 5x (6750 instead of 1350)
@@ -1749,6 +1750,8 @@
                     document.getElementById('click-combo-container').style.display = 'block';
                     document.getElementById('forge-open-btn').style.display = 'block';
                     document.getElementById('reality-btn').style.display = (this.infinityPoints >= 1e12 || this.artifacts.prism) ? 'block' : 'none';
+                    // Hide warp button in infinity dimension
+                    document.getElementById('warp-btn').style.display = 'none';
                     document.getElementById('game-title').innerText = "INFINITY ENGINE";
                     document.getElementById('game-title').style.color = "#bd00ff";
                     document.querySelector('.currency-select').style.pointerEvents = "none";
@@ -2896,18 +2899,13 @@
                 const timeWindow = 2; // 2 seconds
                 const essencePerSecond = totalEssenceGain / timeWindow;
                 
-                // Split between void and cosmic based on gain amounts
-                // Void particles give 1 essence each (or 2 with crystal artifact)
-                // Cosmic particles give 3 essence each (or 6 with crystal artifact)
-                let voidGains = recentGains.filter(h => h.amount === 1 || h.amount === 2).reduce((sum, h) => sum + h.amount, 0);
-                let cosmicGains = recentGains.filter(h => h.amount === 3 || h.amount === 6 || h.amount >= 9).reduce((sum, h) => sum + h.amount, 0);
+                // Calculate total essence per second - just show the REAL amount you're getting
+                // This accounts for all multipliers (event, click, combo, etc.)
+                const totalEssencePerSecond = totalEssenceGain / timeWindow;
                 
-                // Show essence per second from each particle type
-                let voidRate = voidGains / timeWindow;
-                let cosmicRate = cosmicGains / timeWindow;
-                
-                document.getElementById('void-particle-rate').innerText = `Void Particles: +${Format(voidRate)} essence/s`;
-                document.getElementById('cosmic-particle-rate').innerText = `Cosmic Particles: +${Format(cosmicRate)} essence/s`;
+                // Show total essence per second (accurate when multipliers are active)
+                document.getElementById('void-particle-rate').innerText = `Total Essence: +${Format(totalEssencePerSecond)}/s`;
+                document.getElementById('cosmic-particle-rate').innerText = `(from all sources)`;
             },
             spawnComboText(text, x, y) {
                 const el = document.createElement('div');
@@ -3071,52 +3069,50 @@
                 };
                 con.appendChild(card2);
 
-                // New particle upgrade - satisfying particles that go into blackhole
-                if(Game.infUpgrades.void > 0) {
-                    let cost3 = 100 * Math.pow(2.5, Game.infUpgrades.particles);
-                    const card3 = document.createElement('div'); card3.className = 'upgrade-card';
-                    card3.style.borderColor = '#0ff';
-                    card3.innerHTML = `<div class="u-info"><span class="u-name">Cosmic Particles</span><span class="u-desc">Beautiful particles that spiral into the blackhole. ${Game.infUpgrades.particles} particles active.</span></div><div class="u-meta"><span class="u-cost">${Format(cost3)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.particles}</span></div>`;
-                    if(Game.infinityPoints < cost3) {
-                        card3.classList.add('locked');
-                        card3.style.pointerEvents = 'none';
-                    }
-                    card3.onclick = (e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        if(Game.infinityPoints >= cost3) { 
-                            Game.infinityPoints -= cost3; 
-                            Game.infUpgrades.particles++; 
-                            UI.updateMainDisplay(); 
-                            UI.buildInfinityUpgrades(); 
-                        }
-                    };
-                    con.appendChild(card3);
+                // New particle upgrade - satisfying particles that go into blackhole (always visible)
+                let cost3 = 100 * Math.pow(2.5, Game.infUpgrades.particles || 0);
+                const card3 = document.createElement('div'); card3.className = 'upgrade-card';
+                card3.style.borderColor = '#0ff';
+                card3.innerHTML = `<div class="u-info"><span class="u-name">Cosmic Particles</span><span class="u-desc">Beautiful particles that spiral into the blackhole. ${Game.infUpgrades.particles || 0} particles active.</span></div><div class="u-meta"><span class="u-cost">${Format(cost3)} Essence</span><span class="u-lvl">LVL ${Game.infUpgrades.particles || 0}</span></div>`;
+                if(Game.infinityPoints < cost3) {
+                    card3.classList.add('locked');
+                    card3.style.pointerEvents = 'none';
                 }
+                card3.onclick = (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if(Game.infinityPoints >= cost3) { 
+                        Game.infinityPoints -= cost3; 
+                        if(!Game.infUpgrades.particles) Game.infUpgrades.particles = 0;
+                        Game.infUpgrades.particles++; 
+                        UI.updateMainDisplay(); 
+                        UI.buildInfinityUpgrades(); 
+                    }
+                };
+                con.appendChild(card3);
 
-                // Click Gain upgrade
-                if(Game.infUpgrades.void > 0) {
-                    let cost4 = 500 * Math.pow(2.0, Game.infUpgrades.clickGain || 0);
-                    const card4 = document.createElement('div'); card4.className = 'upgrade-card';
-                    card4.style.borderColor = '#ff6b9d';
-                    let clickMult = Game.infUpgrades.clickGain || 0;
-                    card4.innerHTML = `<div class="u-info"><span class="u-name">Quantum Amplifier</span><span class="u-desc">Increases Essence gained per blackhole click. x${(1 + clickMult * 0.5).toFixed(2)} multiplier.</span></div><div class="u-meta"><span class="u-cost">${Format(cost4)} Essence</span><span class="u-lvl">LVL ${clickMult}</span></div>`;
-                    if(Game.infinityPoints < cost4) {
-                        card4.classList.add('locked');
-                        card4.style.pointerEvents = 'none';
-                    }
-                    card4.onclick = (e) => {
-                        e.stopPropagation();
-                        if(Game.infinityPoints >= cost4) { 
-                            Game.infinityPoints -= cost4; 
-                            if(!Game.infUpgrades.clickGain) Game.infUpgrades.clickGain = 0;
-                            Game.infUpgrades.clickGain++; 
-                            UI.updateMainDisplay(); 
-                            UI.buildInfinityUpgrades(); 
-                        }
-                    };
-                    con.appendChild(card4);
+                // Click Gain upgrade (always visible)
+                let cost4 = 500 * Math.pow(2.0, Game.infUpgrades.clickGain || 0);
+                const card4 = document.createElement('div'); card4.className = 'upgrade-card';
+                card4.style.borderColor = '#ff6b9d';
+                let clickMult = Game.infUpgrades.clickGain || 0;
+                card4.innerHTML = `<div class="u-info"><span class="u-name">Quantum Amplifier</span><span class="u-desc">Increases Essence gained per blackhole click. x${(Math.pow(1.5, clickMult)).toFixed(2)} multiplier.</span></div><div class="u-meta"><span class="u-cost">${Format(cost4)} Essence</span><span class="u-lvl">LVL ${clickMult}</span></div>`;
+                if(Game.infinityPoints < cost4) {
+                    card4.classList.add('locked');
+                    card4.style.pointerEvents = 'none';
                 }
+                card4.onclick = (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if(Game.infinityPoints >= cost4) { 
+                        Game.infinityPoints -= cost4; 
+                        if(!Game.infUpgrades.clickGain) Game.infUpgrades.clickGain = 0;
+                        Game.infUpgrades.clickGain++; 
+                        UI.updateMainDisplay(); 
+                        UI.buildInfinityUpgrades(); 
+                    }
+                };
+                con.appendChild(card4);
                 
             },
             updateRPMList() {
