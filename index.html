@@ -1613,7 +1613,8 @@
                     profiles: this.profiles,
                     currentProfile: this.currentProfile,
                     selectedRPM: this.selectedRPM,
-                    encounteredEvents: this.encounteredEvents || []
+                    encounteredEvents: this.encounteredEvents || [],
+                    settings: this.settings || { floaters: true, autoSelectMaterial: false }
                 };
                 localStorage.setItem('chronoCyclesSave', JSON.stringify(saveData));
             },
@@ -1651,11 +1652,35 @@
                     if(!this.selectedRPM) this.selectedRPM = 0;
                     if(data.encounteredEvents) this.encounteredEvents = data.encounteredEvents;
                     else this.encounteredEvents = [];
+                    if(data.settings) this.settings = data.settings;
+                    else this.settings = { floaters: true, autoSelectMaterial: false };
+                    
+                    // Restore settings UI
+                    if(this.settings.floaters !== undefined) {
+                        const floatersBtn = document.getElementById('floaters-btn');
+                        if(floatersBtn) {
+                            floatersBtn.innerText = `FLOATING TEXT: ${this.settings.floaters ? "ON" : "OFF"}`;
+                            if(this.settings.floaters) floatersBtn.classList.add('active'); 
+                            else floatersBtn.classList.remove('active');
+                        }
+                    }
+                    if(this.settings.autoSelectMaterial !== undefined) {
+                        const autoSelectBtn = document.getElementById('auto-select-material-btn');
+                        if(autoSelectBtn) {
+                            autoSelectBtn.innerText = `AUTO-SELECT MATERIAL: ${this.settings.autoSelectMaterial ? "ON" : "OFF"}`;
+                            if(this.settings.autoSelectMaterial) autoSelectBtn.classList.add('active'); 
+                            else autoSelectBtn.classList.remove('active');
+                        }
+                    }
                     
                     // Restore UI state based on dimension
                     if(this.dimension !== undefined) {
                         setTimeout(() => {
                             this.restoreDimensionUI(this.dimension);
+                            // Make sure profile button shows if in reality mode or has profiles
+                            if(this.dimension === 2 || (this.profiles && Object.keys(this.profiles.challenges || {}).length > 0)) {
+                                document.getElementById('profile-btn').style.display = 'block';
+                            }
                         }, 100);
                     }
                     
@@ -1907,9 +1932,9 @@
                             let angleToCenter = Math.atan2(dy, dx);
                             let tangentialAngle = angleToCenter + Math.PI / 2; // Perpendicular to radius
                             
-                            // Orbital velocity (faster as it gets closer) - increased speeds
-                            let orbitalSpeed = 20 + (1 - dist / (Math.max(window.innerWidth, window.innerHeight) / 2)) * 30;
-                            let radialSpeed = 12; // Inward pull - much faster
+                            // Orbital velocity (faster as it gets closer) - 5x faster speeds
+                            let orbitalSpeed = (20 + (1 - dist / (Math.max(window.innerWidth, window.innerHeight) / 2)) * 30) * 5;
+                            let radialSpeed = 12 * 5; // Inward pull - 5x faster
                             
                             // Combine orbital and radial motion - faster multipliers
                             p.x += Math.cos(tangentialAngle) * orbitalSpeed * 0.08 + Math.cos(angleToCenter) * radialSpeed * 0.06;
@@ -2717,6 +2742,9 @@
                 document.querySelectorAll('.manual-tab').forEach(b => b.classList.remove('active'));
                 document.getElementById(`man-page-${pageIdx}`).classList.add('active');
                 btn.classList.add('active');
+                if(pageIdx === 4) {
+                    this.buildEventsLibrary();
+                }
             },
             updateComboUI() {
                 // Show combo in all dimensions (including Reality)
@@ -2805,10 +2833,17 @@
                 if(!particleInfo) return;
                 particleInfo.style.display = 'block';
                 
-                // Calculate void particle rate (1 per particle per second, with artifact multiplier)
-                let voidRate = (Game.voidParticles ? Game.voidParticles.length : 0) * (Game.artifacts && Game.artifacts.crystal ? 2 : 1);
-                // Cosmic particles give 3 essence per particle per second (they move faster so absorb faster)
-                let cosmicRate = (Game.cosmicParticles ? Game.cosmicParticles.length : 0) * 3 * (Game.artifacts && Game.artifacts.crystal ? 2 : 1);
+                // Calculate actual essence per second based on absorption rate
+                // Void particles move slowly, absorb about once per 1-2 seconds
+                // Cosmic particles move 5x faster, absorb about 5x as often
+                let voidParticleCount = Game.voidParticles ? Game.voidParticles.length : 0;
+                let cosmicParticleCount = Game.cosmicParticles ? Game.cosmicParticles.length : 0;
+                let artifactMult = (Game.artifacts && Game.artifacts.crystal) ? 2 : 1;
+                
+                // Void particles: ~0.8 essence/s per particle (conservative estimate)
+                let voidRate = voidParticleCount * 0.8 * artifactMult;
+                // Cosmic particles: ~5 essence/s per particle (5x faster movement)
+                let cosmicRate = cosmicParticleCount * 5 * artifactMult;
                 
                 document.getElementById('void-particle-rate').innerText = `Void: +${Format(voidRate)}/s`;
                 document.getElementById('cosmic-particle-rate').innerText = `Cosmic: +${Format(cosmicRate)}/s`;
@@ -3167,9 +3202,12 @@
                 }
             },
             updateForgeUI() {
-                if(Game.artifacts.prism) { const b = document.getElementById('forge-btn-prism'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
-                if(Game.artifacts.anchor) { const b = document.getElementById('forge-btn-anchor'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
-                if(Game.artifacts.chart) { const b = document.getElementById('forge-btn-chart'); b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); }
+                if(Game.artifacts.prism) { const b = document.getElementById('forge-btn-prism'); if(b) { b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); } }
+                if(Game.artifacts.anchor) { const b = document.getElementById('forge-btn-anchor'); if(b) { b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); } }
+                if(Game.artifacts.chart) { const b = document.getElementById('forge-btn-chart'); if(b) { b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); } }
+                if(Game.artifacts.crystal) { const b = document.getElementById('forge-btn-crystal'); if(b) { b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); } }
+                if(Game.artifacts.amplifier) { const b = document.getElementById('forge-btn-amplifier'); if(b) { b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); } }
+                if(Game.artifacts.loop) { const b = document.getElementById('forge-btn-loop'); if(b) { b.innerText = "OWNED"; b.disabled=true; b.classList.add('owned'); } }
             },
             buildChallenges() {
                 const modal = document.getElementById('challenges-modal');
