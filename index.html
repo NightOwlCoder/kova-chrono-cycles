@@ -535,7 +535,15 @@
                 <div class="manual-text">
                     <p>Once all 10 layers reach <span class="manual-highlight">3,000 RPM</span>, the engine collapses into a Black Hole.</p>
                     <p>In this dimension, you collect <b>Essence</b>. This currency is used in the <span class="manual-highlight">Infinity Forge</span> to create permanent Artifacts that persist through all resets.</p>
-                    <p>The <b>Void Siphon</b> upgrade automatically collects Essence for you.</p>
+                    <p>The <b>Void Siphon</b> upgrade automatically collects Essence for you. At level 10+, it provides exponential auto-gain.</p>
+                    <p><b>⚛️ Singularity Collapse:</b> When you reach 1 billion Essence (or have reached it before), you can collapse the Singularity to earn <span class="manual-highlight">Void Cores</span>. This resets all Infinity upgrades and Essence, but grants permanent upgrades that persist through all collapses. The "SINGULARITY COLLAPSE" button appears in Infinity mode once you reach 100 million Essence.</p>
+                    <p><b>Void Cores</b> can be spent on permanent upgrades that persist through all collapses:</p>
+                    <ul style="margin-left:20px; color:#aaa; margin-top:10px;">
+                        <li><b>⚡ Void Resonance:</b> Multiplies ALL essence gains (void particles, cosmic particles, clicks, auto-gain) by +10% per level</li>
+                        <li><b>⚛️ Quantum Efficiency:</b> Makes Infinity upgrade costs scale 5% slower per level, making it easier to reach higher levels</li>
+                        <li><b>✨ Particle Density:</b> Start each run with +5 void particles per level</li>
+                        <li><b>🌊 Essence Cascade:</b> Lowers Void Siphon level required for auto-gain (each level reduces requirement by 2 levels)</li>
+                    </ul>
                 </div>
             </div>
 
@@ -768,7 +776,7 @@
                     ⚒️ OPEN INFINITY FORGE
                 </button>
                 
-                <button class="forge-open-btn" id="singularity-btn" onclick="document.getElementById('singularity-modal').classList.add('open'); UI.updateSingularityUI()" style="display:none; background:linear-gradient(135deg, #bd00ff, #8a00cc); border-color:#bd00ff; color:#fff; animation: pulse-glow 2s ease-in-out infinite;">
+                <button class="forge-open-btn" id="singularity-btn" onclick="UI.openSingularityModal()" style="display:none; background:linear-gradient(135deg, #bd00ff, #8a00cc); border-color:#bd00ff; color:#fff; animation: pulse-glow 2s ease-in-out infinite;">
                     ⚛️ SINGULARITY COLLAPSE
                 </button>
                 
@@ -1361,14 +1369,18 @@
                 // Only available in Infinity dimension
                 if(this.dimension !== 1) return;
                 
-                // Require at least 1 billion essence to prestige
-                if(this.maxEssenceReached < 1e9) return;
+                // Require at least 1 billion essence to prestige (check current or max reached)
+                const currentMax = Math.max(this.maxEssenceReached || 0, this.infinityPoints || 0);
+                if(currentMax < 1e9) {
+                    alert(`You need at least 1 billion Essence to collapse the Singularity. Current: ${Format(this.infinityPoints)}`);
+                    return;
+                }
                 
                 // Calculate Void Cores: log10(maxEssence / 1e9) * multiplier
                 // Similar to Chronons but for Infinity
-                let voidCores = Math.floor(Math.log10(Math.max(1, this.maxEssenceReached / 1e9)) * 2.5);
+                let voidCores = Math.floor(Math.log10(Math.max(1, currentMax / 1e9)) * 2.5);
                 
-                if(confirm(`COLLAPSE SINGULARITY? You will lose ALL Infinity upgrades and Essence. You will gain ${voidCores} Void Cores.`)) {
+                if(confirm(`COLLAPSE SINGULARITY? You will lose ALL Infinity upgrades and Essence. You will gain ${voidCores} Void Cores. Continue?`)) {
                     // Add Void Cores BEFORE reset
                     this.singularityPoints += voidCores;
                     
@@ -1386,6 +1398,10 @@
                     UI.buildInfinityUpgrades();
                     UI.updateSingularityUI();
                     UI.updateMainDisplay();
+                    
+                    // Close modal after collapse
+                    const modal = document.getElementById('singularity-modal');
+                    if(modal) modal.classList.remove('open');
                     
                     Achievements.show("SINGULARITY COLLAPSED", `Gained ${voidCores} Void Cores!`, "#bd00ff");
                 }
@@ -3774,24 +3790,28 @@
                 document.getElementById('singularity-points-display').innerText = Format(Game.singularityPoints || 0);
                 document.getElementById('max-essence-display').innerText = Format(Game.maxEssenceReached || 0);
                 
-                // Calculate pending Void Cores
+                // Calculate pending Void Cores - use current essence or max reached, whichever is higher
                 let pending = 0;
-                if(Game.maxEssenceReached >= 1e9) {
-                    pending = Math.floor(Math.log10(Math.max(1, Game.maxEssenceReached / 1e9)) * 2.5);
+                const currentMax = Math.max(Game.maxEssenceReached || 0, Game.infinityPoints || 0);
+                if(currentMax >= 1e9) {
+                    pending = Math.floor(Math.log10(Math.max(1, currentMax / 1e9)) * 2.5);
                 }
                 document.getElementById('singularity-pending').innerText = `+${Format(pending)} Void Cores`;
                 
                 // Update prestige button
                 const btn = document.getElementById('singularity-prestige-btn');
                 if(btn) {
-                    if(Game.maxEssenceReached >= 1e9 && Game.dimension === 1) {
+                    const canPrestige = currentMax >= 1e9 && Game.dimension === 1;
+                    if(canPrestige) {
                         btn.disabled = false;
                         btn.innerText = `COLLAPSE SINGULARITY (+${Format(pending)})`;
                         btn.style.opacity = '1';
                         btn.style.cursor = 'pointer';
+                        btn.onclick = () => Game.doSingularityCollapse();
                     } else {
+                        const needed = Math.max(0, 1e9 - currentMax);
                         btn.disabled = true;
-                        btn.innerText = 'COLLAPSE SINGULARITY (Requires 1B Essence)';
+                        btn.innerText = `COLLAPSE SINGULARITY (${Format(needed)} more needed)`;
                         btn.style.opacity = '0.6';
                         btn.style.cursor = 'not-allowed';
                     }
@@ -3799,11 +3819,13 @@
                 
                 // Build upgrades
                 this.buildSingularityUpgrades();
-                
-                // Show/hide button based on dimension
-                const singularityBtn = document.getElementById('singularity-btn');
-                if(singularityBtn) {
-                    singularityBtn.style.display = (Game.dimension === 1 && Game.maxEssenceReached >= 1e8) ? 'block' : 'none';
+            },
+            openSingularityModal() {
+                const modal = document.getElementById('singularity-modal');
+                if(modal) {
+                    this.updateSingularityUI();
+                    modal.classList.add('open');
+                    modal.style.display = 'flex';
                 }
             },
             buildSingularityUpgrades() {
@@ -3815,37 +3837,37 @@
                     {
                         id: 'resonance',
                         name: 'Void Resonance',
-                        desc: 'Base essence gain multiplier',
+                        desc: 'Multiplies all essence gains (void particles, cosmic particles, clicks, auto-gain) by +10% per level. Applies to everything.',
                         icon: '⚡',
                         getCost: (level) => Math.floor(1 * Math.pow(2, level)),
-                        getEffect: (level) => `x${(1 + level * 0.1).toFixed(1)}`,
+                        getEffect: (level) => `x${(1 + level * 0.1).toFixed(1)} total essence multiplier`,
                         color: '#bd00ff'
                     },
                     {
                         id: 'efficiency',
                         name: 'Quantum Efficiency',
-                        desc: 'Upgrade costs scale slower',
+                        desc: 'Reduces the cost scaling of all Infinity upgrades. Each level makes upgrade costs scale 5% slower, making it easier to reach higher levels.',
                         icon: '⚛️',
                         getCost: (level) => Math.floor(2 * Math.pow(2, level)),
-                        getEffect: (level) => `x${(1 - level * 0.05).toFixed(2)} cost scaling`,
+                        getEffect: (level) => `Costs scale ${(level * 5).toFixed(0)}% slower`,
                         color: '#0ff'
                     },
                     {
                         id: 'density',
                         name: 'Particle Density',
-                        desc: 'Start with more void particles',
+                        desc: 'Increases the base number of void particles that spawn. Starts you with more particles every run, making early game faster.',
                         icon: '✨',
                         getCost: (level) => Math.floor(3 * Math.pow(2, level)),
-                        getEffect: (level) => `+${level * 5} starting particles`,
+                        getEffect: (level) => `+${level * 5} starting void particles`,
                         color: '#ff6b9d'
                     },
                     {
                         id: 'cascade',
                         name: 'Essence Cascade',
-                        desc: 'Auto-gain activates earlier/stronger',
+                        desc: 'Lowers the Void Siphon level required for auto-gain to activate. Each level reduces the requirement by 2 levels (starts at level 10, goes to 8, 6, 4, 2, 0).',
                         icon: '🌊',
                         getCost: (level) => Math.floor(5 * Math.pow(2, level)),
-                        getEffect: (level) => `Level ${Math.max(1, 10 - level * 2)} activation`,
+                        getEffect: (level) => `Auto-gain activates at level ${Math.max(0, 10 - level * 2)}`,
                         color: '#ffd700'
                     }
                 ];
@@ -3860,8 +3882,8 @@
                     card.innerHTML = `
                         <div style="font-size:1.5rem; margin-bottom:8px;">${upgrade.icon}</div>
                         <div style="font-family:"Orbitron"; font-size:1.1rem; color:#fff; font-weight:bold; margin-bottom:5px;">${upgrade.name}</div>
-                        <div style="font-size:0.85rem; color:#aaa; margin-bottom:10px;">${upgrade.desc}</div>
-                        <div style="font-size:0.9rem; color:${upgrade.color}; margin-bottom:10px; font-weight:bold;">Effect: ${effect}</div>
+                        <div style="font-size:0.75rem; color:#aaa; margin-bottom:8px; line-height:1.4;">${upgrade.desc}</div>
+                        <div style="font-size:0.9rem; color:${upgrade.color}; margin-bottom:10px; font-weight:bold; padding:5px; background:rgba(189,0,255,0.1); border-radius:5px;">Current: ${effect}</div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
                             <span style="font-size:0.85rem; color:#aaa;">Level ${level}</span>
                             <button class="singularity-upgrade-btn" data-upgrade="${upgrade.id}" style="background:${upgrade.color}; border:none; color:#fff; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold; transition:all 0.3s;" ${Game.singularityPoints < cost ? 'disabled' : ''}>Buy (${Format(cost)})</button>
