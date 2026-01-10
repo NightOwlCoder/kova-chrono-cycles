@@ -1103,7 +1103,7 @@
                     this.infinityPoints += totalGain;
                     // Track gain for rate calculation
                     this._essenceGainHistory = this._essenceGainHistory || [];
-                    this._essenceGainHistory.push({ amount: totalGain, time: performance.now() });
+                    this._essenceGainHistory.push({ amount: totalGain, time: performance.now(), source: 'click' });
                     // Keep only last 2 seconds
                     this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                     UI.spawnText(`+${totalGain.toFixed(1)} Essence`, 0, true, 'blue-purple');
@@ -1917,11 +1917,15 @@
                     if (this.dimension === 1) {
                         // Math: 1.5 ^ level - increased max particles for more visual density
                         const targetCount = Math.min(150, Math.floor(Math.pow(1.5, this.infUpgrades.void)) * 3);
-                        // Auto-gain from high levels without particles
+                        // Auto-gain from high levels without particles (exponential)
                         if(this.infUpgrades.void > 10) {
                             let autoGain = Math.pow(1.8, this.infUpgrades.void) * dt;
                             this.infinityPoints += autoGain;
-                            // Update display only every frame? might be too fast. Handled in loop.
+                            // Track gain for rate calculation
+                            this._essenceGainHistory = this._essenceGainHistory || [];
+                            this._essenceGainHistory.push({ amount: autoGain, time: performance.now(), source: 'void_auto' });
+                            // Keep only last 2 seconds
+                            this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                         }
 
                         while (this.voidParticles.length < targetCount) {
@@ -1941,7 +1945,7 @@
                                 this.infinityPoints += voidGain;
                                 // Track gain for rate calculation
                                 this._essenceGainHistory = this._essenceGainHistory || [];
-                                this._essenceGainHistory.push({ amount: voidGain, time: performance.now() });
+                                this._essenceGainHistory.push({ amount: voidGain, time: performance.now(), source: 'void_particle' });
                                 // Keep only last 2 seconds
                                 this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                                 UI.updateMainDisplay();
@@ -1995,7 +1999,7 @@
                                 this.infinityPoints += cosmicGain;
                                 // Track gain for rate calculation
                                 this._essenceGainHistory = this._essenceGainHistory || [];
-                                this._essenceGainHistory.push({ amount: cosmicGain, time: performance.now() });
+                                this._essenceGainHistory.push({ amount: cosmicGain, time: performance.now(), source: 'cosmic_particle' });
                                 // Keep only last 2 seconds
                                 this._essenceGainHistory = this._essenceGainHistory.filter(h => performance.now() - h.time < 2000);
                                 UI.updateMainDisplay();
@@ -2899,13 +2903,30 @@
                 const timeWindow = 2; // 2 seconds
                 const essencePerSecond = totalEssenceGain / timeWindow;
                 
-                // Calculate total essence per second - just show the REAL amount you're getting
-                // This accounts for all multipliers (event, click, combo, etc.)
-                const totalEssencePerSecond = totalEssenceGain / timeWindow;
+                // Calculate essence per second from each source separately
+                let voidGains = 0;
+                let cosmicGains = 0;
                 
-                // Show total essence per second (accurate when multipliers are active)
-                document.getElementById('void-particle-rate').innerText = `Total Essence: +${Format(totalEssencePerSecond)}/s`;
-                document.getElementById('cosmic-particle-rate').innerText = `(from all sources)`;
+                recentGains.forEach(h => {
+                    if(h.source === 'void_particle' || h.source === 'void_auto') {
+                        voidGains += h.amount;
+                    } else if(h.source === 'cosmic_particle') {
+                        cosmicGains += h.amount;
+                    } else {
+                        // Clicks - could be either, but usually smaller amounts relative to particles
+                        // Just add to void for now (or we could split it)
+                        voidGains += h.amount * 0.3;
+                        cosmicGains += h.amount * 0.7;
+                    }
+                });
+                
+                // Calculate per second rates
+                let voidRate = voidGains / timeWindow;
+                let cosmicRate = cosmicGains / timeWindow;
+                
+                // Show separate rates
+                document.getElementById('void-particle-rate').innerText = `Void Particles: +${Format(voidRate)}/s`;
+                document.getElementById('cosmic-particle-rate').innerText = `Cosmic Particles: +${Format(cosmicRate)}/s`;
             },
             spawnComboText(text, x, y) {
                 const el = document.createElement('div');
